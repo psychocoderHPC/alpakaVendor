@@ -1,0 +1,99 @@
+FFT Backends
+=============
+
+alpakaVendor supports multiple FFT backends through alpaka's accelerator abstraction.
+
+Memory layout convention
+------------------------
+
+alpakaVendor follows alpaka's memory layout convention: **the last index is the fast-moving index** (row-major order).
+
+For a 2D M x N transform:
+
+.. code-block:: cpp
+
+   // M rows, N columns
+   // Index 0 (M): slow-moving (row)
+   // Index 1 (N): fast-moving (column)
+   auto extents = alpaka::Vec<std::size_t, 2u>{M, N};
+
+   // Linear index: row * N + col
+   data[row * N + col] = value;
+
+This means:
+
+- For ``Extents<2>{M, N}``, the last dimension (N) is contiguous in memory
+- For ``Extents<3>{D, H, W}``, the last dimension (W) is contiguous in memory
+
+When copying your own data into alpaka buffers, ensure the fast-moving index corresponds to the contiguous dimension.
+
+Backend activation
+------------------
+
+Backends are enabled in CMake. The C++ user code stays the same.
+
+FFTW host backend
++++++++++++++++++
+
+.. code-block:: bash
+
+   cmake .. -DalpakaV_DEP_FFTW=ON
+
+cuFFT CUDA backend
+++++++++++++++++++
+
+.. code-block:: bash
+
+   cmake .. -DalpakaV_DEP_CUFFT=ON -Dalpaka_DEP_CUDA=ON -Dalpaka_CUDA_NvidiaGpu=ON
+
+hipFFT HIP backend
+++++++++++++++++++
+
+.. code-block:: bash
+
+   cmake .. -DalpakaV_DEP_HIPFFT=ON -Dalpaka_DEP_HIP=ON -Dalpaka_HIP_AmdGpu=ON
+
+Backend-agnostic C++ usage
+--------------------------
+
+The documentation examples are instantiated for all available backends:
+
+.. literalinclude:: ../../../doc/code/quickstart_c2c.cpp
+   :language: C++
+   :start-after: //! [quickstart-c2c-backends]
+   :end-before: //! [quickstart-c2c-backends]
+
+Once the queue is selected, plan creation and execution are backend-agnostic:
+
+.. literalinclude:: ../../../doc/code/quickstart_c2c.cpp
+   :language: C++
+   :start-after: //! [quickstart-c2c-core]
+   :end-before: //! [quickstart-c2c-core]
+
+Validation
+----------
+
+Backends validate configuration at plan creation time:
+
+- Dimension must be 1, 2, or 3
+- Batch must be >= 1
+- Extents must be non-zero
+- Complex value type only supports C2C
+- Real value type only supports R2C/C2R
+- Only contiguous layouts are supported in v1
+
+Error handling
+++++++++++++++
+
+Invalid configurations throw ``std::invalid_argument``:
+
+.. code-block:: cpp
+
+   try {
+       auto plan = PlanBuilder<float, 1>{}
+           .r2c()
+           .extents({0u})  // Invalid: zero extent
+           .build(queue);
+   } catch (const std::invalid_argument& e) {
+       std::cerr << "Error: " << e.what() << std::endl;
+   }

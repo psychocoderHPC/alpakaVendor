@@ -1,0 +1,39 @@
+# Doxyfile_dev 1.9.8 - Developer API (full, including internals)
+
+PROJECT_NAME           = alpakaVendor
+PROJECT_BRIEF          = "Portable FFT abstraction on top of alpaka"
+OUTPUT_DIRECTORY       = doxygen_dev/
+
+INPUT                  = ../include/ \
+                         ../README.md
+RECURSIVE              = YES
+EXCLUDE_SYMBOLS        = NO_HTML
+
+USE_MDFILE_AS_MAINPAGE = ../README.md
+
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = YES
+EXTRACT_STATIC         = YES
+
+BUILTIN_STL_SUPPORT    = YES
+JAVADOC_AUTOBRIEF      = YES
+MULTILINE_CPP_IS_BRIEF = YES
+SOURCE_BROWSER         = YES
+GENERATE_LATEX         = NO
+
+GENERATE_XML           = YES
+XML_OUTPUT             = xml
+XML_PROGRAMLISTING     = YES
+
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+HTML_COLORSTYLE_HUE    = 220
+HTML_COLORSTYLE_SAT    = 100
+HTML_COLORSTYLE_GAMMA  = 80
+
+MARKDOWN_SUPPORT       = YES
+AUTOLINK_SUPPORT       = YES
+
+QUIET                  = YES
+WARN_IF_UNDOCUMENTED   = NO
+WARN_IF_INCOMPLETE_DOC = NO
