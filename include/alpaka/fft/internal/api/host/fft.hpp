@@ -269,42 +269,39 @@ namespace alpaka::fft::internal
 
         void execute(auto& queue, auto const& in, auto& out, Direction direction)
         {
-            queue.enqueueHostFn(
-                [&in, &out, direction, this]()
-                {
-                    auto nVals = n();
-                    auto inEmbedVals = inEmbed();
-                    auto outEmbedVals = outEmbed();
-                    auto inDistance = static_cast<int>(expectedInDistance(m_layout, m_transform, m_options.placement));
-                    auto outDistance
-                        = static_cast<int>(expectedOutDistance(m_layout, m_transform, m_options.placement));
-                    int batch = static_cast<int>(m_layout.batch);
+            auto layout = m_layout;
+            auto options = m_options;
+            auto transform = m_transform;
 
-                    if constexpr(ComplexScalar<T_Value>)
+            std::array<int, T_dim> nVals{};
+            for(std::size_t i = 0; i < T_dim; ++i)
+                nVals[i] = static_cast<int>(layout.extents[i]);
+
+            auto inEmbedExt = expectedInputExtents(layout, transform, options.placement);
+            std::array<int, T_dim> inEmbedVals{};
+            for(std::size_t i = 0; i < T_dim; ++i)
+                inEmbedVals[i] = static_cast<int>(inEmbedExt[i]);
+
+            auto outEmbedExt = expectedOutputExtents(layout, transform, options.placement);
+            std::array<int, T_dim> outEmbedVals{};
+            for(std::size_t i = 0; i < T_dim; ++i)
+                outEmbedVals[i] = static_cast<int>(outEmbedExt[i]);
+
+            auto inDistance = static_cast<int>(expectedInDistance(layout, transform, options.placement));
+            auto outDistance = static_cast<int>(expectedOutDistance(layout, transform, options.placement));
+            int batch = static_cast<int>(layout.batch);
+
+            auto* rawInPtr = removeCvPtr(in.data());
+            auto* rawOutPtr = removeCvPtr(out.data());
+
+            if constexpr(ComplexScalar<T_Value>)
+            {
+                validate(direction == Direction::forward || direction == Direction::backward, "Invalid direction.");
+                auto* inPtr = reinterpret_cast<typename traits::complex_type*>(rawInPtr);
+                auto* outPtr = reinterpret_cast<typename traits::complex_type*>(rawOutPtr);
+                queue.enqueueHostFn(
+                    [inPtr, outPtr, direction, nVals, inEmbedVals, outEmbedVals, inDistance, outDistance, batch]()
                     {
-                        validate(
-                            direction == Direction::forward || direction == Direction::backward,
-                            "Invalid direction.");
-                        if(m_layout.batch > 1u)
-                        {
-                            validateBatchedViewExtents<decltype(in), T_dim>(
-                                in,
-                                m_layout.extents,
-                                m_layout.batch,
-                                "Input");
-                            validateBatchedViewExtents<decltype(out), T_dim>(
-                                out,
-                                m_layout.extents,
-                                m_layout.batch,
-                                "Output");
-                        }
-                        else
-                        {
-                            validateViewExtents<decltype(in), T_dim>(in, m_layout.extents, "Input");
-                            validateViewExtents<decltype(out), T_dim>(out, m_layout.extents, "Output");
-                        }
-                        auto* inPtr = reinterpret_cast<typename traits::complex_type*>(removeCvPtr(in.data()));
-                        auto* outPtr = reinterpret_cast<typename traits::complex_type*>(out.data());
                         if constexpr(std::same_as<real_type, float>)
                         {
                             auto plan = fftwf_plan_many_dft(
@@ -345,57 +342,43 @@ namespace alpaka::fft::internal
                             fftw_execute_dft(plan, inPtr, outPtr);
                             fftw_destroy_plan(plan);
                         }
-                    }
-                    else
-                    {
-                        using InValue = std::remove_cv_t<std::remove_pointer_t<decltype(in.data())>>;
-                        if constexpr(std::same_as<InValue, real_type>)
+                    });
+            }
+            else
+            {
+                using InValue = std::remove_cv_t<std::remove_pointer_t<decltype(rawInPtr)>>;
+                if constexpr(std::same_as<InValue, real_type>)
+                {
+                    validate(direction == Direction::forward, "R2C only supports forward execution.");
+                    auto* outCpx = reinterpret_cast<typename traits::complex_type*>(rawOutPtr);
+                    queue.enqueueHostFn(
+                        [rawInPtr,
+                         outCpx,
+                         direction,
+                         nVals,
+                         inEmbedVals,
+                         outEmbedVals,
+                         inDistance,
+                         outDistance,
+                         batch]()
                         {
-                            validate(direction == Direction::forward, "R2C only supports forward execution.");
-                            if(m_layout.batch > 1u)
-                            {
-                                validateBatchedViewExtents<decltype(in), T_dim>(
-                                    in,
-                                    expectedInputExtents(m_layout, Transform::r2c, m_options.placement),
-                                    m_layout.batch,
-                                    "Input");
-                                validateBatchedViewExtents<decltype(out), T_dim>(
-                                    out,
-                                    expectedOutputExtents(m_layout, Transform::r2c, m_options.placement),
-                                    m_layout.batch,
-                                    "Output");
-                            }
-                            else
-                            {
-                                validateViewExtents<decltype(in), T_dim>(
-                                    in,
-                                    expectedInputExtents(m_layout, Transform::r2c, m_options.placement),
-                                    "Input");
-                                validateViewExtents<decltype(out), T_dim>(
-                                    out,
-                                    expectedOutputExtents(m_layout, Transform::r2c, m_options.placement),
-                                    "Output");
-                            }
                             if constexpr(std::same_as<real_type, float>)
                             {
                                 auto plan = fftwf_plan_many_dft_r2c(
                                     static_cast<int>(T_dim),
                                     nVals.data(),
                                     batch,
-                                    removeCvPtr(in.data()),
+                                    rawInPtr,
                                     inEmbedVals.data(),
                                     1,
                                     inDistance,
-                                    reinterpret_cast<typename traits::complex_type*>(out.data()),
+                                    outCpx,
                                     outEmbedVals.data(),
                                     1,
                                     outDistance,
                                     traits::flags);
                                 validate(plan != nullptr, "FFTW plan creation failed.");
-                                fftwf_execute_dft_r2c(
-                                    plan,
-                                    removeCvPtr(in.data()),
-                                    reinterpret_cast<typename traits::complex_type*>(out.data()));
+                                fftwf_execute_dft_r2c(plan, rawInPtr, outCpx);
                                 fftwf_destroy_plan(plan);
                             }
                             else
@@ -404,70 +387,53 @@ namespace alpaka::fft::internal
                                     static_cast<int>(T_dim),
                                     nVals.data(),
                                     batch,
-                                    removeCvPtr(in.data()),
+                                    rawInPtr,
                                     inEmbedVals.data(),
                                     1,
                                     inDistance,
-                                    reinterpret_cast<typename traits::complex_type*>(out.data()),
+                                    outCpx,
                                     outEmbedVals.data(),
                                     1,
                                     outDistance,
                                     traits::flags);
                                 validate(plan != nullptr, "FFTW plan creation failed.");
-                                fftw_execute_dft_r2c(
-                                    plan,
-                                    removeCvPtr(in.data()),
-                                    reinterpret_cast<typename traits::complex_type*>(out.data()));
-                                fftw_destroy_plan(plan);
+                                fftw_execute_dft_r2c(plan, rawInPtr, outCpx);
+                                fftwf_destroy_plan(plan);
                             }
-                        }
-                        else
+                        });
+                }
+                else
+                {
+                    validate(direction == Direction::backward, "C2R only supports backward execution.");
+                    auto* inCpx = reinterpret_cast<typename traits::complex_type*>(rawInPtr);
+                    queue.enqueueHostFn(
+                        [inCpx,
+                         rawOutPtr,
+                         direction,
+                         nVals,
+                         inEmbedVals,
+                         outEmbedVals,
+                         inDistance,
+                         outDistance,
+                         batch]()
                         {
-                            validate(direction == Direction::backward, "C2R only supports backward execution.");
-                            if(m_layout.batch > 1u)
-                            {
-                                validateBatchedViewExtents<decltype(in), T_dim>(
-                                    in,
-                                    expectedInputExtents(m_layout, Transform::c2r, m_options.placement),
-                                    m_layout.batch,
-                                    "Input");
-                                validateBatchedViewExtents<decltype(out), T_dim>(
-                                    out,
-                                    expectedOutputExtents(m_layout, Transform::c2r, m_options.placement),
-                                    m_layout.batch,
-                                    "Output");
-                            }
-                            else
-                            {
-                                validateViewExtents<decltype(in), T_dim>(
-                                    in,
-                                    expectedInputExtents(m_layout, Transform::c2r, m_options.placement),
-                                    "Input");
-                                validateViewExtents<decltype(out), T_dim>(
-                                    out,
-                                    expectedOutputExtents(m_layout, Transform::c2r, m_options.placement),
-                                    "Output");
-                            }
                             if constexpr(std::same_as<real_type, float>)
                             {
                                 auto plan = fftwf_plan_many_dft_c2r(
                                     static_cast<int>(T_dim),
                                     nVals.data(),
                                     batch,
-                                    reinterpret_cast<typename traits::complex_type*>(removeCvPtr(in.data())),
+                                    inCpx,
                                     inEmbedVals.data(),
                                     1,
                                     inDistance,
-                                    out.data(),
+                                    rawOutPtr,
                                     outEmbedVals.data(),
                                     1,
                                     outDistance,
                                     traits::flags);
                                 validate(plan != nullptr, "FFTW plan creation failed.");
-                                fftwf_execute_dft_c2r(
-                                    plan,
-                                    reinterpret_cast<typename traits::complex_type*>(removeCvPtr(in.data())),
-                                    out.data());
+                                fftwf_execute_dft_c2r(plan, inCpx, rawOutPtr);
                                 fftwf_destroy_plan(plan);
                             }
                             else
@@ -476,26 +442,22 @@ namespace alpaka::fft::internal
                                     static_cast<int>(T_dim),
                                     nVals.data(),
                                     batch,
-                                    reinterpret_cast<typename traits::complex_type*>(removeCvPtr(in.data())),
+                                    inCpx,
                                     inEmbedVals.data(),
                                     1,
                                     inDistance,
-                                    out.data(),
+                                    rawOutPtr,
                                     outEmbedVals.data(),
                                     1,
                                     outDistance,
                                     traits::flags);
                                 validate(plan != nullptr, "FFTW plan creation failed.");
-                                fftw_execute_dft_c2r(
-                                    plan,
-                                    reinterpret_cast<typename traits::complex_type*>(removeCvPtr(in.data())),
-                                    out.data());
+                                fftw_execute_dft_c2r(plan, inCpx, rawOutPtr);
                                 fftw_destroy_plan(plan);
                             }
-                        }
-                    }
-                });
-            alpaka::onHost::wait(queue);
+                        });
+                }
+            }
         }
     };
 } // namespace alpaka::fft::internal

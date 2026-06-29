@@ -16,7 +16,8 @@
         "alpaka_EXAMPLES": "OFF",
         "alpaka_BENCHMARKS": "OFF",
         "alpaka_HEADERCHECKS": "OFF",
-        "alpakaV_TESTS": "ON"
+        "alpakaV_TESTS": "ON",
+    "alpakaV_DOCS": "ON"
       }
     },
     {
