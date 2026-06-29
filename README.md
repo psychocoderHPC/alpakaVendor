@@ -92,13 +92,13 @@ target_link_libraries(your_target PRIVATE alpakaVendor::alpakaVendor)
 
 ## CMake Options
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `alpakaV_DEP_FFTW` | `ON` | Enable FFTW host backend |
-| `alpakaV_DEP_CUFFT` | `ON` | Enable cuFFT CUDA backend |
-| `alpakaV_DEP_HIPFFT` | `OFF` | Enable hipFFT HIP backend |
+| Option | Default          | Description |
+|--------|------------------|-------------|
+| `alpakaV_DEP_FFTW` | `ON`             | Enable FFTW host backend |
+| `alpakaV_DEP_CUFFT` | `OFF`            | Enable cuFFT CUDA backend |
+| `alpakaV_DEP_HIPFFT` | `OFF`            | Enable hipFFT HIP backend |
 | `alpakaV_TESTS` | `ON` (top-level) | Build tests |
-| `alpakaV_DOCS` | `OFF` | Build documentation |
+| `alpakaV_DOCS` | `OFF`            | Build documentation |
 
 ## Backend Selection
 

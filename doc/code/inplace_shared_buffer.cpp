@@ -29,7 +29,6 @@ TEMPLATE_LIST_TEST_CASE("SharedBufferFFT example", "[doc][inplace][shared_buffer
     auto device = devSelector.makeDevice(0);
 
     using namespace alpaka::fft;
-    using Complex = alpaka::math::Complex<float>;
 
     // Compute storage requirements for N=16
     constexpr std::size_t n = 16u;

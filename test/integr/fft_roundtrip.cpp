@@ -54,9 +54,6 @@ TEMPLATE_LIST_TEST_CASE("FFT C2C roundtrip 1D", "[integr][fft][c2c]", TestBacken
 
 TEMPLATE_LIST_TEST_CASE("FFT C2C roundtrip 1D accepts plain alpaka buffers", "[integr][fft][c2c][plain]", TestBackends)
 {
-    using namespace alpaka::fft;
-    using Complex = alpaka::math::Complex<float>;
-
     auto deviceExec = getDeviceExecutorOrSkipTest(TestType::makeDict());
     auto device = getDevice(deviceExec);
 

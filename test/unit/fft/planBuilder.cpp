@@ -14,7 +14,6 @@ TEMPLATE_LIST_TEST_CASE("PlanBuilder defaults are applied", "[unit][plan]", Test
 {
     auto deviceExec = getDeviceExecutorOrSkipTest(TestType::makeDict());
     auto device = getDevice(deviceExec);
-    auto exec = getExecutor(deviceExec);
 
     if constexpr(!isFftBackendEnabledForDevice(device))
     {
@@ -39,7 +38,6 @@ TEMPLATE_LIST_TEST_CASE("invalid plan configuration throws", "[unit][plan]", Tes
 {
     auto deviceExec = getDeviceExecutorOrSkipTest(TestType::makeDict());
     auto device = getDevice(deviceExec);
-    auto exec = getExecutor(deviceExec);
 
     if constexpr(!isFftBackendEnabledForDevice(device))
     {

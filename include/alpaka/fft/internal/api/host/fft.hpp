@@ -270,7 +270,7 @@ namespace alpaka::fft::internal
         void execute(auto& queue, auto const& in, auto& out, Direction direction)
         {
             queue.enqueueHostFn(
-                [&queue, &in, &out, direction, this]()
+                [&in, &out, direction, this]()
                 {
                     auto nVals = n();
                     auto inEmbedVals = inEmbed();
