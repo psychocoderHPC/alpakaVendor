@@ -19,9 +19,9 @@
 #    define ALPAKAV_HAS_CUFFT 0
 #endif
 
-#if __has_include(<hipfft/hipfft.h>)
-#    include <hipfft/hipfft.h>
-#    define ALPAKAV_HAS_HIPFFT 1
+#if __has_include(<rocfft/rocfft.h>)
+#    include <rocfft/rocfft.h>
+#    define ALPAKAV_HAS_ROCFFT 1
 #else
-#    define ALPAKAV_HAS_HIPFFT 0
+#    define ALPAKAV_HAS_ROCFFT 0
 #endif

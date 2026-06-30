@@ -44,8 +44,7 @@ TEMPLATE_LIST_TEST_CASE("Batched C2C transform", "[doc][batched][c2c]", TestBack
             in.data()[b * n + i] = (i == 0u) ? Complex{1.0f, 0.0f} : Complex{0.0f, 0.0f};
 
     auto plan
-        = alpaka::fft::onHost::PlanBuilder<Complex>{}.c2c().extents(n).batch(batchSize).distances(n, n).build(
-            queue);
+        = alpaka::fft::onHost::PlanBuilder<Complex>{}.c2c().extents(n).batch(batchSize).distances(n, n).build(queue);
 
     alpaka::fft::onHost::executeForward(queue, plan, in, out);
     alpaka::onHost::wait(queue);

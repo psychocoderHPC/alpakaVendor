@@ -130,12 +130,13 @@ namespace alpaka::fft
     using Real_t = typename Real<T>::type;
 
     template<typename T_From, typename T_To>
-    inline constexpr bool isLosslessIntegralUpcastV = std::integral<T_From> && std::integral<T_To>
-        && (std::same_as<std::remove_cv_t<T_From>, std::remove_cv_t<T_To>>
-            || ((std::is_signed_v<T_From> == std::is_signed_v<T_To>)
-                && (std::numeric_limits<T_To>::digits >= std::numeric_limits<T_From>::digits))
-            || (std::is_unsigned_v<T_From> && std::is_signed_v<T_To>
-                && (std::numeric_limits<T_To>::digits > std::numeric_limits<T_From>::digits)));
+    inline constexpr bool isLosslessIntegralUpcastV
+        = std::integral<T_From> && std::integral<T_To>
+          && (std::same_as<std::remove_cv_t<T_From>, std::remove_cv_t<T_To>>
+              || ((std::is_signed_v<T_From> == std::is_signed_v<T_To>)
+                  && (std::numeric_limits<T_To>::digits >= std::numeric_limits<T_From>::digits))
+              || (std::is_unsigned_v<T_From> && std::is_signed_v<T_To>
+                  && (std::numeric_limits<T_To>::digits > std::numeric_limits<T_From>::digits)));
 
     template<typename T_Value, uint32_t T_dim>
     [[nodiscard]] constexpr auto filledVec(T_Value value)
@@ -253,7 +254,8 @@ namespace alpaka::fft
 
     template<typename T_Real>
     requires RealScalar<T_Real>
-    [[nodiscard]] constexpr auto makeInPlaceRealStorage(alpaka::concepts::VectorOrScalar auto const& logicalRealExtents)
+    [[nodiscard]] constexpr auto makeInPlaceRealStorage(
+        alpaka::concepts::VectorOrScalar auto const& logicalRealExtents)
     {
         auto extents = [&]()
         {

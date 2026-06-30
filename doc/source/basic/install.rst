@@ -112,11 +112,11 @@ Enable CUDA and cuFFT for the NVIDIA GPU backend:
 
    cmake .. -DalpakaV_DEP_CUFFT=ON -Dalpaka_DEP_CUDA=ON -Dalpaka_CUDA_NvidiaGpu=ON
 
-Enable ROCm and hipFFT for the AMD GPU backend:
+Enable ROCm and rocFFT for the AMD GPU backend:
 
 .. code-block:: bash
 
-   cmake .. -DalpakaV_DEP_HIPFFT=ON -Dalpaka_DEP_HIP=ON -Dalpaka_HIP_AmdGpu=ON
+   cmake .. -DalpakaV_DEP_ROCFFT=ON -Dalpaka_DEP_HIP=ON -Dalpaka_HIP_AmdGpu=ON
 
 Relevant FFT options:
 
@@ -130,14 +130,14 @@ Relevant FFT options:
      - Enable FFTW host backend (default: ON)
    * - ``alpakaV_DEP_CUFFT``
      - Enable cuFFT CUDA backend (default: OFF)
-   * - ``alpakaV_DEP_HIPFFT``
-     - Enable hipFFT HIP backend (default: OFF)
+   * - ``alpakaV_DEP_ROCFFT``
+     - Enable rocFFT HIP backend (default: OFF)
 
 Example CPU-only configuration:
 
 .. code-block:: bash
 
-   cmake .. -DalpakaV_DEP_FFTW=ON -DalpakaV_DEP_CUFFT=OFF -DalpakaV_DEP_HIPFFT=OFF
+   cmake .. -DalpakaV_DEP_FFTW=ON -DalpakaV_DEP_CUFFT=OFF -DalpakaV_DEP_ROCFFT=OFF
 
 General options
 ---------------

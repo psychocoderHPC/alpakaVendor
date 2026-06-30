@@ -18,7 +18,7 @@ alpakaVendor is a header-only C++20 library that provides portable, type-safe ab
 
 ## Features
 
-- **Portable**: Single codebase targeting CPU (FFTW), NVIDIA GPU (cuFFT), AMD GPU (hipFFT), and Intel GPU (oneMKL DFT) through alpaka's backend abstraction.
+- **Portable**: Single codebase targeting CPU (FFTW), NVIDIA GPU (cuFFT), AMD GPU (rocFFT), and Intel GPU (oneMKL DFT) through alpaka's backend abstraction.
 - **Type-safe**: Strong typing for real and complex value types with compile-time dimension selection (1D, 2D, 3D).
 - **RAII-based**: Plans are RAII objects that own backend handles and clean up automatically.
 - **Batched transforms**: Efficient batched FFT operations with configurable strides and distances.
@@ -39,13 +39,13 @@ auto queue = dev.makeQueue();
 
 // Allocate FFT-managed buffers
 constexpr std::size_t N = 1024;
-auto in  = alpaka::fft::onHost::allocForFFT<Complex>(dev, alpaka::Vec<std::size_t, 1u>{N});
-auto out = alpaka::fft::onHost::allocForFFT<Complex>(dev, alpaka::Vec<std::size_t, 1u>{N});
+auto in  = alpaka::fft::onHost::allocForFFT<Complex>(dev, N);
+auto out = alpaka::fft::onHost::allocForFFT<Complex>(dev, N);
 
 // Create plan and execute
-auto plan = alpaka::fft::onHost::PlanBuilder<Complex, 1>{}
+auto plan = alpaka::fft::onHost::PlanBuilder<Complex>{}
                 .c2c()
-                .extents({N})
+                .extents(N)
                 .build(queue);
 
 alpaka::fft::onHost::executeForward(queue, plan, in, out);
@@ -59,14 +59,14 @@ alpaka::onHost::wait(queue);
 - [alpaka 3.x](https://github.com/alpaka-group/alpaka)
 - [FFTW 3.x](http://www.fftw.org/) (for CPU backend)
 - CUDA Toolkit (for NVIDIA GPU backend, optional)
-- ROCm / hipFFT (for AMD GPU backend, optional)
+- ROCm / rocFFT (for AMD GPU backend, optional)
 
 ## Installation
 
 ### Using CMake
 
 ```bash
-cmake -B build -DalpakaV_DEP_FFTW=ON -DalpakaV_DEP_CUFFT=OFF -DalpakaV_DEP_HIPFFT=OFF
+cmake -B build -DalpakaV_DEP_FFTW=ON -DalpakaV_DEP_CUFFT=OFF -DalpakaV_DEP_ROCFFT=OFF
 cmake --build build
 ctest --test-dir build
 ```
@@ -96,7 +96,7 @@ target_link_libraries(your_target PRIVATE alpakaVendor::alpakaVendor)
 |--------|------------------|-------------|
 | `alpakaV_DEP_FFTW` | `ON`             | Enable FFTW host backend |
 | `alpakaV_DEP_CUFFT` | `OFF`            | Enable cuFFT CUDA backend |
-| `alpakaV_DEP_HIPFFT` | `OFF`            | Enable hipFFT HIP backend |
+| `alpakaV_DEP_ROCFFT` | `OFF`            | Enable rocFFT HIP backend |
 | `alpakaV_TESTS` | `ON` (top-level) | Build tests |
 | `alpakaV_DOCS` | `OFF`            | Build documentation |
 

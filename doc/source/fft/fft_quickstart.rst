@@ -87,7 +87,7 @@ Enable host FFT support:
 .. code-block:: bash
 
    mkdir build && cd build
-   cmake .. -DalpakaV_DEP_FFTW=ON -DalpakaV_DEP_CUFFT=OFF -DalpakaV_DEP_HIPFFT=OFF
+   cmake .. -DalpakaV_DEP_FFTW=ON -DalpakaV_DEP_CUFFT=OFF -DalpakaV_DEP_ROCFFT=OFF
    cmake --build .
 
 Enable CUDA FFT support:
@@ -103,5 +103,5 @@ Enable HIP FFT support:
 .. code-block:: bash
 
    mkdir build && cd build
-   cmake .. -DalpakaV_DEP_HIPFFT=ON -Dalpaka_DEP_HIP=ON -Dalpaka_HIP_AmdGpu=ON
+   cmake .. -DalpakaV_DEP_ROCFFT=ON -Dalpaka_DEP_HIP=ON -Dalpaka_HIP_AmdGpu=ON
    cmake --build .

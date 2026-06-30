@@ -9,7 +9,7 @@ About alpakaVendor
 alpakaVendor aims to provide a unified interface for common math operations across CPU and GPU backends. Each module wraps a specific domain of functionality:
 
 **FFT**
-   Portable FFT abstraction mapping to vendor-specific implementations (FFTW, cuFFT, hipFFT, oneMKL DFT). Supports C2C, R2C, and C2R transforms in 1D, 2D, and 3D, with batched and in-place modes.
+   Portable FFT abstraction mapping to vendor-specific implementations (FFTW, cuFFT, rocFFT, oneMKL DFT). Supports C2C, R2C, and C2R transforms in 1D, 2D, and 3D, with batched and in-place modes.
 
 **BLAS**
    (Planned) Portable BLAS interface for linear algebra operations.
@@ -37,7 +37,7 @@ Supported backends
 
 - **FFTW** (CPU): The fastest Fourier transform in the West. Supports float and double precision.
 - **cuFFT** (NVIDIA GPU): NVIDIA's CUDA FFT library. Requires CUDA toolkit.
-- **hipFFT** (AMD GPU): AMD's HIP FFT library.
+- **rocFFT** (AMD GPU): AMD's HIP FFT library.
 - **oneMKL** (Intel GPU): Intel's oneAPI Math Kernel Library. (Planned)
 
 Requirements

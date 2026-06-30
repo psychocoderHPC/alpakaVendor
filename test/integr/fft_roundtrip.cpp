@@ -24,7 +24,7 @@ TEMPLATE_LIST_TEST_CASE("FFT C2C roundtrip 1D", "[integr][fft][c2c]", TestBacken
     {
         using namespace alpaka::fft;
         using Complex = alpaka::math::Complex<float>;
-    
+
         auto queue = device.makeQueue();
         constexpr uint32_t n = 8u;
         auto extents = n;
@@ -43,8 +43,10 @@ TEMPLATE_LIST_TEST_CASE("FFT C2C roundtrip 1D", "[integr][fft][c2c]", TestBacken
 
         for(uint32_t i = 0; i < n; ++i)
         {
-            CHECK(out.data()[i].real() == Catch::Approx(in.data()[i].real() * float(n)).epsilon(1.0e-4).margin(1.0e-5));
-            CHECK(out.data()[i].imag() == Catch::Approx(in.data()[i].imag() * float(n)).epsilon(1.0e-4).margin(1.0e-5));
+            CHECK(
+                out.data()[i].real() == Catch::Approx(in.data()[i].real() * float(n)).epsilon(1.0e-4).margin(1.0e-5));
+            CHECK(
+                out.data()[i].imag() == Catch::Approx(in.data()[i].imag() * float(n)).epsilon(1.0e-4).margin(1.0e-5));
         }
     }
 }
@@ -65,7 +67,7 @@ TEMPLATE_LIST_TEST_CASE(
     {
         using namespace alpaka::fft;
         using Complex = alpaka::math::Complex<float>;
-    
+
         auto queue = device.makeQueue();
         constexpr uint32_t n = 8u;
         auto extents = n;
@@ -86,8 +88,10 @@ TEMPLATE_LIST_TEST_CASE(
 
         for(uint32_t i = 0; i < n; ++i)
         {
-            CHECK(out.data()[i].real() == Catch::Approx(in.data()[i].real() * float(n)).epsilon(1.0e-4).margin(1.0e-5));
-            CHECK(out.data()[i].imag() == Catch::Approx(in.data()[i].imag() * float(n)).epsilon(1.0e-4).margin(1.0e-5));
+            CHECK(
+                out.data()[i].real() == Catch::Approx(in.data()[i].real() * float(n)).epsilon(1.0e-4).margin(1.0e-5));
+            CHECK(
+                out.data()[i].imag() == Catch::Approx(in.data()[i].imag() * float(n)).epsilon(1.0e-4).margin(1.0e-5));
         }
     }
 }
@@ -105,7 +109,7 @@ TEMPLATE_LIST_TEST_CASE("FFT C2C roundtrip 1D accepts plain alpaka buffers", "[i
     {
         using namespace alpaka::fft;
         using Complex = alpaka::math::Complex<float>;
-    
+
         auto queue = device.makeQueue();
         constexpr uint32_t n = 8u;
         auto extents = n;
@@ -124,8 +128,10 @@ TEMPLATE_LIST_TEST_CASE("FFT C2C roundtrip 1D accepts plain alpaka buffers", "[i
 
         for(uint32_t i = 0; i < n; ++i)
         {
-            CHECK(out.data()[i].real() == Catch::Approx(in.data()[i].real() * float(n)).epsilon(1.0e-4).margin(1.0e-5));
-            CHECK(out.data()[i].imag() == Catch::Approx(in.data()[i].imag() * float(n)).epsilon(1.0e-4).margin(1.0e-5));
+            CHECK(
+                out.data()[i].real() == Catch::Approx(in.data()[i].real() * float(n)).epsilon(1.0e-4).margin(1.0e-5));
+            CHECK(
+                out.data()[i].imag() == Catch::Approx(in.data()[i].imag() * float(n)).epsilon(1.0e-4).margin(1.0e-5));
         }
     }
 }
@@ -146,7 +152,6 @@ TEMPLATE_LIST_TEST_CASE(
     }
     else
     {
-    
         auto queue = device.makeQueue();
         constexpr uint32_t n = 8u;
         constexpr uint32_t complexN = r2cComplexExtent(n);
@@ -182,7 +187,7 @@ TEMPLATE_LIST_TEST_CASE("FFT R2C/C2R in place 1D", "[integr][fft][r2c][c2r]", Te
     else
     {
         using namespace alpaka::fft;
-    
+
         auto queue = device.makeQueue();
         constexpr uint32_t n = 8u;
         auto storage = makeInPlaceRealStorage<float>(n);

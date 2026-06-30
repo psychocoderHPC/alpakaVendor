@@ -46,12 +46,12 @@ cuFFT CUDA backend
 
    cmake .. -DalpakaV_DEP_CUFFT=ON -Dalpaka_DEP_CUDA=ON -Dalpaka_CUDA_NvidiaGpu=ON
 
-hipFFT HIP backend
+rocFFT HIP backend
 ++++++++++++++++++
 
 .. code-block:: bash
 
-   cmake .. -DalpakaV_DEP_HIPFFT=ON -Dalpaka_DEP_HIP=ON -Dalpaka_HIP_AmdGpu=ON
+   cmake .. -DalpakaV_DEP_ROCFFT=ON -Dalpaka_DEP_HIP=ON -Dalpaka_HIP_AmdGpu=ON
 
 Backend-agnostic C++ usage
 --------------------------

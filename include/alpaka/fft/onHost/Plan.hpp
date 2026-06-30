@@ -14,9 +14,7 @@
 
 namespace alpaka::fft::onHost
 {
-    template<
-        typename T_Value,
-        alpaka::concepts::Vector T_Extents = alpaka::fft::Extents<uint32_t, 1u>>
+    template<typename T_Value, alpaka::concepts::Vector T_Extents = alpaka::fft::Extents<uint32_t, 1u>>
     class PlanBuilder;
 
     template<typename T_Api, typename T_Value, alpaka::concepts::Vector T_Extents>

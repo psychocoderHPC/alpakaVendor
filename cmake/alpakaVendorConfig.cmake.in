@@ -12,8 +12,8 @@ if(@alpakaV_DEP_CUFFT@)
     find_dependency(CUDAToolkit REQUIRED)
 endif()
 
-if(@alpakaV_DEP_HIPFFT@)
-    find_dependency(hipfft REQUIRED CONFIG)
+if(@alpakaV_DEP_ROCFFT@)
+    find_dependency(rocfft REQUIRED CONFIG)
 endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/alpakaVendorTargets.cmake")

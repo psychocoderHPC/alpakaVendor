@@ -176,7 +176,7 @@ jobs:
       - name: Install ROCm
         if: matrix.config.hip != 'no'
         run: |
-          apt-get install -y hipfft
+          apt-get install -y rocfft
           # ROCm is pre-installed in the ROCm container
           ROCM_PATH=/opt/rocm
           echo "ROCM_PATH=${ROCM_PATH}" >> $GITHUB_ENV
@@ -251,7 +251,7 @@ jobs:
           if [ "${{ matrix.config.hip }}" != "no" ]; then
             CMAKE_FLAGS="${CMAKE_FLAGS} -DCMAKE_CXX_COMPILER=clang++ -Dalpaka_DEP_HIP=ON -Dalpaka_DEP_OMP=OFF"
             CMAKE_FLAGS="${CMAKE_FLAGS} -DCMAKE_HIP_ARCHITECTURES=gfx906 -DAMDGPU_TARGETS=gfx906"
-            CMAKE_FLAGS="${CMAKE_FLAGS} -DalpakaV_DEP_HIPFFT=ON"
+            CMAKE_FLAGS="${CMAKE_FLAGS} -DalpakaV_DEP_ROCFFT=ON"
           fi
 
           # Sanitizer flags

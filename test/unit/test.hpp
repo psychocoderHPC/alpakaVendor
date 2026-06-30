@@ -27,7 +27,7 @@ namespace alpakaVendor::test
         else if constexpr(std::same_as<Api, alpaka::api::Cuda>)
             return ALPAKAV_DEP_CUFFT;
         else if constexpr(std::same_as<Api, alpaka::api::Hip>)
-            return ALPAKAV_DEP_HIPFFT;
+            return ALPAKAV_DEP_ROCFFT;
         else
             return false;
     }

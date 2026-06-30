@@ -23,7 +23,7 @@ TEMPLATE_LIST_TEST_CASE("PlanBuilder defaults are applied", "[unit][plan]", Test
     {
         using namespace alpaka::fft;
         using Complex = alpaka::math::Complex<float>;
-    
+
         auto queue = device.makeQueue();
 
         auto plan = alpaka::fft::onHost::PlanBuilder<Complex>{}.c2c().extents(8u).build(queue);
@@ -47,7 +47,7 @@ TEMPLATE_LIST_TEST_CASE("invalid plan configuration throws", "[unit][plan]", Tes
     {
         using namespace alpaka::fft;
         using Complex = alpaka::math::Complex<float>;
-    
+
         auto queue = device.makeQueue();
 
         CHECK_THROWS_AS(

@@ -20,7 +20,7 @@ include(FetchContent)
 option(alpakaV_TESTS "Build alpakaVendor tests." ${PROJECT_IS_TOP_LEVEL})
 option(alpakaV_DEP_FFTW "Enable FFTW host backend." ON)
 option(alpakaV_DEP_CUFFT "Enable cuFFT CUDA backend." OFF)
-option(alpakaV_DEP_HIPFFT "Enable hipFFT HIP backend." OFF)
+option(alpakaV_DEP_ROCFFT "Enable rocFFT HIP backend." OFF)
 option(alpakaV_DOCS "Build documentation and code snippets." OFF)
 
 if(alpaka_DEP_HIP)
@@ -54,13 +54,13 @@ if(alpakaV_DEP_CUFFT)
     find_package(CUDAToolkit REQUIRED)
 endif()
 
-if(alpakaV_DEP_HIPFFT)
+if(alpakaV_DEP_ROCFFT)
     find_package(
-        hipfft
+        rocfft
         REQUIRED
         CONFIG
         HINTS "$ENV{ROCM_PATH}" /opt/rocm /opt/rocm-6.3.4
-        PATH_SUFFIXES lib/cmake/hipfft
+        PATH_SUFFIXES lib/cmake/rocfft
     )
 endif()
 
@@ -78,7 +78,7 @@ target_compile_definitions(
     INTERFACE
         ALPAKAV_DEP_FFTW=$<BOOL:${alpakaV_DEP_FFTW}>
         ALPAKAV_DEP_CUFFT=$<BOOL:${alpakaV_DEP_CUFFT}>
-        ALPAKAV_DEP_HIPFFT=$<BOOL:${alpakaV_DEP_HIPFFT}>
+        ALPAKAV_DEP_ROCFFT=$<BOOL:${alpakaV_DEP_ROCFFT}>
 )
 if(alpakaV_DEP_FFTW)
     target_link_libraries(alpakaVendor INTERFACE PkgConfig::FFTW3)
@@ -86,8 +86,8 @@ endif()
 if(alpakaV_DEP_CUFFT)
     target_link_libraries(alpakaVendor INTERFACE CUDA::cufft)
 endif()
-if(alpakaV_DEP_HIPFFT)
-    target_link_libraries(alpakaVendor INTERFACE hip::hipfft)
+if(alpakaV_DEP_ROCFFT)
+    target_link_libraries(alpakaVendor INTERFACE roc::rocfft)
 endif()
 
 if(alpakaV_TESTS)

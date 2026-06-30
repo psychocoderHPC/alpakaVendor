@@ -7,41 +7,57 @@
 
 #include "alpaka/fft/internal/api/config.hpp"
 
+#include <algorithm>
+#include <array>
+#include <cstdlib>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <vector>
 
-#if ALPAKAV_HAS_HIPFFT
+#if ALPAKAV_HAS_ROCFFT
 namespace alpaka::fft::internal
 {
     template<typename T>
-    struct HipfftTraits;
+    struct RocfftTraits;
 
     template<>
-    struct HipfftTraits<float>
+    struct RocfftTraits<float>
     {
-        using complex_type = hipfftComplex;
-        static constexpr hipfftType c2c = HIPFFT_C2C;
-        static constexpr hipfftType r2c = HIPFFT_R2C;
-        static constexpr hipfftType c2r = HIPFFT_C2R;
+        static constexpr rocfft_precision precision = rocfft_precision_single;
     };
 
     template<>
-    struct HipfftTraits<double>
+    struct RocfftTraits<double>
     {
-        using complex_type = hipfftDoubleComplex;
-        static constexpr hipfftType c2c = HIPFFT_Z2Z;
-        static constexpr hipfftType r2c = HIPFFT_D2Z;
-        static constexpr hipfftType c2r = HIPFFT_Z2D;
+        static constexpr rocfft_precision precision = rocfft_precision_double;
     };
+
+    inline void check(rocfft_status status, char const* what)
+    {
+        if(status != rocfft_status_success)
+            throw std::invalid_argument(
+                std::string{what} + " failed with rocFFT error code " + std::to_string(int(status)));
+    }
+
+    inline void ensureRocfftSetup()
+    {
+        static std::once_flag setupFlag;
+        std::call_once(
+            setupFlag,
+            []()
+            {
+                check(rocfft_setup(), "rocfft_setup");
+                std::atexit([]() { static_cast<void>(rocfft_cleanup()); });
+            });
+    }
 
     template<typename T_Value, alpaka::concepts::Vector T_Extents>
     struct PlanImpl<alpaka::api::Hip, T_Value, T_Extents>
     {
         using value_type = T_Value;
         using real_type = Real_t<T_Value>;
-        using traits = HipfftTraits<real_type>;
+        using traits = RocfftTraits<real_type>;
 
         Transform m_transform;
         static constexpr uint32_t T_dim = T_Extents::dim();
@@ -49,23 +65,29 @@ namespace alpaka::fft::internal
 
         Layout<T_Extents> m_layout;
         PlanOptions m_options;
-        hipfftHandle m_handle = nullptr;
+        rocfft_plan m_forwardPlan = nullptr;
+        rocfft_plan m_inversePlan = nullptr;
+        rocfft_execution_info m_execInfo = nullptr;
         std::size_t m_workspaceBytes = 0u;
 
-        PlanImpl(auto& queue, Transform transform, Layout<T_Extents> layout, PlanOptions options)
+        PlanImpl(auto&, Transform transform, Layout<T_Extents> layout, PlanOptions options)
             : m_transform{transform}
             , m_layout{layout}
             , m_options{options}
         {
             validateConfig();
-            createPlan(queue);
+            ensureRocfftSetup();
+            createPlans();
+            check(rocfft_execution_info_create(&m_execInfo), "rocfft_execution_info_create");
         }
 
         PlanImpl(PlanImpl&& other) noexcept
             : m_transform{other.m_transform}
             , m_layout{other.m_layout}
             , m_options{other.m_options}
-            , m_handle{std::exchange(other.m_handle, nullptr)}
+            , m_forwardPlan{std::exchange(other.m_forwardPlan, nullptr)}
+            , m_inversePlan{std::exchange(other.m_inversePlan, nullptr)}
+            , m_execInfo{std::exchange(other.m_execInfo, nullptr)}
             , m_workspaceBytes{std::exchange(other.m_workspaceBytes, 0u)}
         {
             std::lock_guard lock(other.m_pendingWaitsMutex);
@@ -80,7 +102,9 @@ namespace alpaka::fft::internal
                 m_transform = other.m_transform;
                 m_layout = other.m_layout;
                 m_options = other.m_options;
-                m_handle = std::exchange(other.m_handle, nullptr);
+                m_forwardPlan = std::exchange(other.m_forwardPlan, nullptr);
+                m_inversePlan = std::exchange(other.m_inversePlan, nullptr);
+                m_execInfo = std::exchange(other.m_execInfo, nullptr);
                 m_workspaceBytes = std::exchange(other.m_workspaceBytes, 0u);
                 {
                     std::scoped_lock lock(m_pendingWaitsMutex, other.m_pendingWaitsMutex);
@@ -98,9 +122,15 @@ namespace alpaka::fft::internal
 
         void destroy() noexcept
         {
-            if(m_handle != nullptr)
-                hipfftDestroy(m_handle);
-            m_handle = nullptr;
+            if(m_execInfo != nullptr)
+                rocfft_execution_info_destroy(m_execInfo);
+            if(m_forwardPlan != nullptr)
+                rocfft_plan_destroy(m_forwardPlan);
+            if(m_inversePlan != nullptr && m_inversePlan != m_forwardPlan)
+                rocfft_plan_destroy(m_inversePlan);
+            m_execInfo = nullptr;
+            m_forwardPlan = nullptr;
+            m_inversePlan = nullptr;
         }
 
         void validateConfig() const
@@ -124,77 +154,143 @@ namespace alpaka::fft::internal
                     "Only contiguous output layout is supported.");
         }
 
-        [[nodiscard]] auto dims() const
+        [[nodiscard]] auto lengths() const
         {
-            std::array<long long, T_dim> result{};
+            std::array<std::size_t, T_dim> result{};
             for(uint32_t i = 0u; i < T_dim; ++i)
-                result[i] = static_cast<long long>(m_layout.extents[i]);
+                result[i] = static_cast<std::size_t>(m_layout.extents[T_dim - 1u - i]);
             return result;
         }
 
-        [[nodiscard]] auto inEmbed() const
+        template<alpaka::concepts::Vector T_Vec>
+        [[nodiscard]] static auto reverseToSizeT(T_Vec const& vec)
         {
-            auto ext = expectedInputExtents(m_layout, m_transform, m_options.placement);
-            std::array<long long, T_dim> result{};
+            std::array<std::size_t, T_dim> result{};
             for(uint32_t i = 0u; i < T_dim; ++i)
-                result[i] = static_cast<long long>(ext[i]);
+                result[i] = static_cast<std::size_t>(vec[T_dim - 1u - i]);
             return result;
         }
 
-        [[nodiscard]] auto outEmbed() const
+        [[nodiscard]] auto inStrides() const
         {
-            auto ext = expectedOutputExtents(m_layout, m_transform, m_options.placement);
-            std::array<long long, T_dim> result{};
-            for(uint32_t i = 0u; i < T_dim; ++i)
-                result[i] = static_cast<long long>(ext[i]);
-            return result;
+            return reverseToSizeT(expectedInStrides(m_layout, m_transform, m_options.placement));
         }
 
-        [[nodiscard]] hipfftType type() const
+        [[nodiscard]] auto outStrides() const
         {
-            if(m_transform == Transform::c2c)
-                return traits::c2c;
+            return reverseToSizeT(expectedOutStrides(m_layout, m_transform, m_options.placement));
+        }
+
+        [[nodiscard]] rocfft_result_placement placement() const
+        {
+            return m_options.placement == Placement::inPlace ? rocfft_placement_inplace : rocfft_placement_notinplace;
+        }
+
+        [[nodiscard]] rocfft_array_type inputArrayType() const
+        {
+            if constexpr(ComplexScalar<T_Value>)
+                return rocfft_array_type_complex_interleaved;
             if(m_transform == Transform::r2c)
-                return traits::r2c;
-            return traits::c2r;
+                return rocfft_array_type_real;
+            return rocfft_array_type_hermitian_interleaved;
         }
 
-        static void check(hipfftResult result, char const* what)
+        [[nodiscard]] rocfft_array_type outputArrayType() const
         {
-            if(result != HIPFFT_SUCCESS)
-                throw std::invalid_argument(
-                    std::string{what} + " failed with hipFFT error code " + std::to_string(int(result)));
+            if constexpr(ComplexScalar<T_Value>)
+                return rocfft_array_type_complex_interleaved;
+            if(m_transform == Transform::r2c)
+                return rocfft_array_type_hermitian_interleaved;
+            return rocfft_array_type_real;
         }
 
-        void createPlan(auto& queue)
+        [[nodiscard]] static rocfft_transform_type transformType(Transform transform, Direction direction)
         {
-            auto dimsVals = dims();
-            auto inEmbedVals = inEmbed();
-            auto outEmbedVals = outEmbed();
-            check(hipfftCreate(&m_handle), "hipfftCreate");
-            check(hipfftSetStream(m_handle, queue.getNativeHandle()), "hipfftSetStream");
+            if(transform == Transform::c2c)
+                return direction == Direction::forward ? rocfft_transform_type_complex_forward
+                                                       : rocfft_transform_type_complex_inverse;
+            if(transform == Transform::r2c)
+                return rocfft_transform_type_real_forward;
+            return rocfft_transform_type_real_inverse;
+        }
+
+        [[nodiscard]] auto makeDescription() const
+        {
+            rocfft_plan_description description = nullptr;
+            check(rocfft_plan_description_create(&description), "rocfft_plan_description_create");
+            auto const inStridesVals = inStrides();
+            auto const outStridesVals = outStrides();
             check(
-                hipfftSetAutoAllocation(
-                    m_handle,
-                    m_options.workspacePolicy == WorkspacePolicy::backendManaged ? 1 : 0),
-                "hipfftSetAutoAllocation");
-            size_t workSize = 0u;
+                rocfft_plan_description_set_data_layout(
+                    description,
+                    inputArrayType(),
+                    outputArrayType(),
+                    nullptr,
+                    nullptr,
+                    T_dim,
+                    inStridesVals.data(),
+                    static_cast<std::size_t>(expectedInDistance(m_layout, m_transform, m_options.placement)),
+                    T_dim,
+                    outStridesVals.data(),
+                    static_cast<std::size_t>(expectedOutDistance(m_layout, m_transform, m_options.placement))),
+                "rocfft_plan_description_set_data_layout");
+            return description;
+        }
+
+        [[nodiscard]] auto createPlanFor(Direction direction) const
+        {
+            auto dimsVals = lengths();
+            auto description = makeDescription();
+            rocfft_plan plan = nullptr;
+            auto cleanup = [&]()
+            {
+                if(description != nullptr)
+                    rocfft_plan_description_destroy(description);
+            };
             check(
-                hipfftMakePlanMany64(
-                    m_handle,
-                    static_cast<int>(T_dim),
+                rocfft_plan_create(
+                    &plan,
+                    placement(),
+                    transformType(m_transform, direction),
+                    traits::precision,
+                    T_dim,
                     dimsVals.data(),
-                    inEmbedVals.data(),
-                    1,
-                    static_cast<long long>(expectedInDistance(m_layout, m_transform, m_options.placement)),
-                    outEmbedVals.data(),
-                    1,
-                    static_cast<long long>(expectedOutDistance(m_layout, m_transform, m_options.placement)),
-                    type(),
-                    static_cast<long long>(m_layout.batch),
-                    &workSize),
-                "hipfftMakePlanMany64");
+                    static_cast<std::size_t>(m_layout.batch),
+                    description),
+                "rocfft_plan_create");
+            cleanup();
+            return plan;
+        }
+
+        void createPlans()
+        {
+            if constexpr(ComplexScalar<T_Value>)
+            {
+                m_forwardPlan = createPlanFor(Direction::forward);
+                m_inversePlan = createPlanFor(Direction::backward);
+            }
+            else if(m_transform == Transform::r2c)
+            {
+                m_forwardPlan = createPlanFor(Direction::forward);
+                m_inversePlan = nullptr;
+            }
+            else
+            {
+                m_forwardPlan = createPlanFor(Direction::backward);
+                m_inversePlan = nullptr;
+            }
+
+            size_t workSize = 0u;
+            check(rocfft_plan_get_work_buffer_size(m_forwardPlan, &workSize), "rocfft_plan_get_work_buffer_size");
             m_workspaceBytes = workSize;
+            if(m_inversePlan != nullptr)
+            {
+                size_t inverseWorkSize = 0u;
+                check(
+                    rocfft_plan_get_work_buffer_size(m_inversePlan, &inverseWorkSize),
+                    "rocfft_plan_get_work_buffer_size");
+                m_workspaceBytes = std::max<std::size_t>(m_workspaceBytes, inverseWorkSize);
+            }
         }
 
         [[nodiscard]] std::size_t workspaceBytes() const noexcept
@@ -207,8 +303,10 @@ namespace alpaka::fft::internal
             validate(
                 m_options.workspacePolicy == WorkspacePolicy::userProvided,
                 "Plan does not use user-provided workspace.");
-            validate(bytes >= m_workspaceBytes, "Provided hipFFT workspace is too small.");
-            check(hipfftSetWorkArea(m_handle, ptr), "hipfftSetWorkArea");
+            validate(bytes >= m_workspaceBytes, "Provided rocFFT workspace is too small.");
+            check(
+                rocfft_execution_info_set_work_buffer(m_execInfo, ptr, bytes),
+                "rocfft_execution_info_set_work_buffer");
         }
 
         void trackCompletion(auto& queue)
@@ -223,54 +321,35 @@ namespace alpaka::fft::internal
         {
             auto* rawInPtr = removeCvPtr(in.data());
             auto* rawOutPtr = removeCvPtr(out.data());
-            check(hipfftSetStream(m_handle, queue.getNativeHandle()), "hipfftSetStream");
+            check(
+                rocfft_execution_info_set_stream(m_execInfo, reinterpret_cast<void*>(queue.getNativeHandle())),
+                "rocfft_execution_info_set_stream");
+
+            rocfft_plan activePlan = nullptr;
             if constexpr(ComplexScalar<T_Value>)
             {
-                if constexpr(std::same_as<real_type, float>)
-                    check(
-                        hipfftExecC2C(
-                            m_handle,
-                            reinterpret_cast<hipfftComplex*>(rawInPtr),
-                            reinterpret_cast<hipfftComplex*>(rawOutPtr),
-                            direction == Direction::forward ? HIPFFT_FORWARD : HIPFFT_BACKWARD),
-                        "hipfftExecC2C");
-                else
-                    check(
-                        hipfftExecZ2Z(
-                            m_handle,
-                            reinterpret_cast<hipfftDoubleComplex*>(rawInPtr),
-                            reinterpret_cast<hipfftDoubleComplex*>(rawOutPtr),
-                            direction == Direction::forward ? HIPFFT_FORWARD : HIPFFT_BACKWARD),
-                        "hipfftExecZ2Z");
+                activePlan = direction == Direction::forward ? m_forwardPlan : m_inversePlan;
+            }
+            else if(m_transform == Transform::r2c)
+            {
+                validate(direction == Direction::forward, "R2C only supports forward execution.");
+                activePlan = m_forwardPlan;
             }
             else
             {
-                using InValue = std::remove_cv_t<std::remove_pointer_t<decltype(rawInPtr)>>;
-                if constexpr(std::same_as<InValue, real_type>)
-                {
-                    validate(direction == Direction::forward, "R2C only supports forward execution.");
-                    if constexpr(std::same_as<real_type, float>)
-                        check(
-                            hipfftExecR2C(m_handle, rawInPtr, reinterpret_cast<hipfftComplex*>(rawOutPtr)),
-                            "hipfftExecR2C");
-                    else
-                        check(
-                            hipfftExecD2Z(m_handle, rawInPtr, reinterpret_cast<hipfftDoubleComplex*>(rawOutPtr)),
-                            "hipfftExecD2Z");
-                }
-                else
-                {
-                    validate(direction == Direction::backward, "C2R only supports backward execution.");
-                    if constexpr(std::same_as<real_type, float>)
-                        check(
-                            hipfftExecC2R(m_handle, reinterpret_cast<hipfftComplex*>(rawInPtr), rawOutPtr),
-                            "hipfftExecC2R");
-                    else
-                        check(
-                            hipfftExecZ2D(m_handle, reinterpret_cast<hipfftDoubleComplex*>(rawInPtr), rawOutPtr),
-                            "hipfftExecZ2D");
-                }
+                validate(direction == Direction::backward, "C2R only supports backward execution.");
+                activePlan = m_forwardPlan;
             }
+
+            void* inBuffers[] = {reinterpret_cast<void*>(rawInPtr)};
+            void* outBuffers[] = {reinterpret_cast<void*>(rawOutPtr)};
+            check(
+                rocfft_execute(
+                    activePlan,
+                    inBuffers,
+                    m_options.placement == Placement::inPlace ? nullptr : outBuffers,
+                    m_execInfo),
+                "rocfft_execute");
         }
 
     private:
