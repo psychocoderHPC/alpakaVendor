@@ -7,6 +7,11 @@
 
 #include "alpaka/fft/internal/api/config.hpp"
 
+#include <functional>
+#include <memory>
+#include <mutex>
+#include <vector>
+
 #if ALPAKAV_HAS_HIPFFT
 namespace alpaka::fft::internal
 {
@@ -60,6 +65,8 @@ namespace alpaka::fft::internal
             , m_handle{std::exchange(other.m_handle, nullptr)}
             , m_workspaceBytes{std::exchange(other.m_workspaceBytes, 0u)}
         {
+            std::lock_guard lock(other.m_pendingWaitsMutex);
+            m_pendingWaits = std::move(other.m_pendingWaits);
         }
 
         PlanImpl& operator=(PlanImpl&& other) noexcept
@@ -72,12 +79,17 @@ namespace alpaka::fft::internal
                 m_options = other.m_options;
                 m_handle = std::exchange(other.m_handle, nullptr);
                 m_workspaceBytes = std::exchange(other.m_workspaceBytes, 0u);
+                {
+                    std::scoped_lock lock(m_pendingWaitsMutex, other.m_pendingWaitsMutex);
+                    m_pendingWaits = std::move(other.m_pendingWaits);
+                }
             }
             return *this;
         }
 
         ~PlanImpl()
         {
+            waitForPending();
             destroy();
         }
 
@@ -196,66 +208,90 @@ namespace alpaka::fft::internal
             check(hipfftSetWorkArea(m_handle, ptr), "hipfftSetWorkArea");
         }
 
+        void trackCompletion(auto& queue)
+        {
+            auto event = queue.getDevice().makeEvent();
+            queue.enqueue(event);
+            std::lock_guard lock(m_pendingWaitsMutex);
+            m_pendingWaits.emplace_back([event]() mutable { alpaka::onHost::wait(event); });
+        }
+
         void execute(auto& queue, auto const& in, auto& out, Direction direction)
         {
-            auto handle = m_handle;
-            auto stream = queue.getNativeHandle();
             auto* rawInPtr = removeCvPtr(in.data());
             auto* rawOutPtr = removeCvPtr(out.data());
-            queue.enqueueHostFn(
-                [handle, stream, rawInPtr, rawOutPtr, direction]()
+            check(hipfftSetStream(m_handle, queue.getNativeHandle()), "hipfftSetStream");
+            if constexpr(ComplexScalar<T_Value>)
+            {
+                if constexpr(std::same_as<real_type, float>)
+                    check(
+                        hipfftExecC2C(
+                            m_handle,
+                            reinterpret_cast<hipfftComplex*>(rawInPtr),
+                            reinterpret_cast<hipfftComplex*>(rawOutPtr),
+                            direction == Direction::forward ? HIPFFT_FORWARD : HIPFFT_BACKWARD),
+                        "hipfftExecC2C");
+                else
+                    check(
+                        hipfftExecZ2Z(
+                            m_handle,
+                            reinterpret_cast<hipfftDoubleComplex*>(rawInPtr),
+                            reinterpret_cast<hipfftDoubleComplex*>(rawOutPtr),
+                            direction == Direction::forward ? HIPFFT_FORWARD : HIPFFT_BACKWARD),
+                        "hipfftExecZ2Z");
+            }
+            else
+            {
+                using InValue = std::remove_cv_t<std::remove_pointer_t<decltype(rawInPtr)>>;
+                if constexpr(std::same_as<InValue, real_type>)
                 {
-                    check(hipfftSetStream(handle, stream), "hipfftSetStream");
-                    if constexpr(ComplexScalar<T_Value>)
-                    {
-                        if constexpr(std::same_as<real_type, float>)
-                            check(
-                                hipfftExecC2C(
-                                    handle,
-                                    reinterpret_cast<hipfftComplex*>(rawInPtr),
-                                    reinterpret_cast<hipfftComplex*>(rawOutPtr),
-                                    direction == Direction::forward ? HIPFFT_FORWARD : HIPFFT_BACKWARD),
-                                "hipfftExecC2C");
-                        else
-                            check(
-                                hipfftExecZ2Z(
-                                    handle,
-                                    reinterpret_cast<hipfftDoubleComplex*>(rawInPtr),
-                                    reinterpret_cast<hipfftDoubleComplex*>(rawOutPtr),
-                                    direction == Direction::forward ? HIPFFT_FORWARD : HIPFFT_BACKWARD),
-                                "hipfftExecZ2Z");
-                    }
+                    validate(direction == Direction::forward, "R2C only supports forward execution.");
+                    if constexpr(std::same_as<real_type, float>)
+                        check(
+                            hipfftExecR2C(m_handle, rawInPtr, reinterpret_cast<hipfftComplex*>(rawOutPtr)),
+                            "hipfftExecR2C");
                     else
-                    {
-                        using InValue = std::remove_cv_t<std::remove_pointer_t<decltype(rawInPtr)>>;
-                        if constexpr(std::same_as<InValue, real_type>)
-                        {
-                            validate(direction == Direction::forward, "R2C only supports forward execution.");
-                            if constexpr(std::same_as<real_type, float>)
-                                check(
-                                    hipfftExecR2C(handle, rawInPtr, reinterpret_cast<hipfftComplex*>(rawOutPtr)),
-                                    "hipfftExecR2C");
-                            else
-                                check(
-                                    hipfftExecD2Z(handle, rawInPtr, reinterpret_cast<hipfftDoubleComplex*>(rawOutPtr)),
-                                    "hipfftExecD2Z");
-                        }
-                        else
-                        {
-                            validate(direction == Direction::backward, "C2R only supports backward execution.");
-                            if constexpr(std::same_as<real_type, float>)
-                                check(
-                                    hipfftExecC2R(handle, reinterpret_cast<hipfftComplex*>(rawInPtr), rawOutPtr),
-                                    "hipfftExecC2R");
-                            else
-                                check(
-                                    hipfftExecZ2D(handle, reinterpret_cast<hipfftDoubleComplex*>(rawInPtr), rawOutPtr),
-                                    "hipfftExecZ2D");
-                        }
-                    }
-                });
-            alpaka::onHost::wait(queue);
+                        check(
+                            hipfftExecD2Z(m_handle, rawInPtr, reinterpret_cast<hipfftDoubleComplex*>(rawOutPtr)),
+                            "hipfftExecD2Z");
+                }
+                else
+                {
+                    validate(direction == Direction::backward, "C2R only supports backward execution.");
+                    if constexpr(std::same_as<real_type, float>)
+                        check(
+                            hipfftExecC2R(m_handle, reinterpret_cast<hipfftComplex*>(rawInPtr), rawOutPtr),
+                            "hipfftExecC2R");
+                    else
+                        check(
+                            hipfftExecZ2D(m_handle, reinterpret_cast<hipfftDoubleComplex*>(rawInPtr), rawOutPtr),
+                            "hipfftExecZ2D");
+                }
+            }
         }
+
+    private:
+        void waitForPending() noexcept
+        {
+            std::vector<std::function<void()>> waits;
+            {
+                std::lock_guard lock(m_pendingWaitsMutex);
+                waits.swap(m_pendingWaits);
+            }
+            for(auto& waitFn : waits)
+            {
+                try
+                {
+                    waitFn();
+                }
+                catch(...)
+                {
+                }
+            }
+        }
+
+        std::mutex m_pendingWaitsMutex;
+        std::vector<std::function<void()>> m_pendingWaits;
     };
 } // namespace alpaka::fft::internal
 #endif

@@ -52,6 +52,51 @@ TEMPLATE_LIST_TEST_CASE("FFT C2C roundtrip 1D", "[integr][fft][c2c]", TestBacken
     }
 }
 
+TEMPLATE_LIST_TEST_CASE(
+    "FFT C2C roundtrip 1D survives plan destruction before wait",
+    "[integr][fft][c2c][lifetime]",
+    TestBackends)
+{
+    auto deviceExec = getDeviceExecutorOrSkipTest(TestType::makeDict());
+    auto device = getDevice(deviceExec);
+
+    if constexpr(!isFftBackendEnabledForDevice(device))
+    {
+        SKIP("No FFT backend enabled for this alpaka API.");
+    }
+    else
+    {
+        using namespace alpaka::fft;
+        using Complex = alpaka::math::Complex<float>;
+
+        auto queue = device.makeQueue();
+        constexpr std::size_t n = 8u;
+        auto extents = alpaka::Vec<std::size_t, 1u>{n};
+
+        auto in = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, extents);
+        auto tmp = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, extents);
+        auto out = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, extents);
+
+        for(std::size_t i = 0; i < n; ++i)
+            in.data()[i] = Complex{float(static_cast<int>(i) - 3), float(static_cast<int>(i % 3u) - 1)};
+
+        {
+            auto plan = alpaka::fft::onHost::PlanBuilder<Complex, 1>{}.c2c().extents({n}).build(queue);
+            alpaka::fft::onHost::executeForward(queue, plan, in, tmp);
+            alpaka::fft::onHost::executeBackward(queue, plan, tmp, out);
+        }
+        alpaka::onHost::wait(queue);
+
+        for(std::size_t i = 0; i < n; ++i)
+        {
+            CHECK(
+                out.data()[i].real() == Catch::Approx(in.data()[i].real() * float(n)).epsilon(1.0e-4).margin(1.0e-5));
+            CHECK(
+                out.data()[i].imag() == Catch::Approx(in.data()[i].imag() * float(n)).epsilon(1.0e-4).margin(1.0e-5));
+        }
+    }
+}
+
 TEMPLATE_LIST_TEST_CASE("FFT C2C roundtrip 1D accepts plain alpaka buffers", "[integr][fft][c2c][plain]", TestBackends)
 {
     auto deviceExec = getDeviceExecutorOrSkipTest(TestType::makeDict());

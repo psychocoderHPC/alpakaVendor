@@ -7,6 +7,11 @@
 
 #include "alpaka/fft/internal/api/config.hpp"
 
+#include <functional>
+#include <memory>
+#include <mutex>
+#include <vector>
+
 #if ALPAKAV_HAS_FFTW
 namespace alpaka::fft::internal
 {
@@ -57,6 +62,8 @@ namespace alpaka::fft::internal
             , m_options{other.m_options}
             , m_plan{std::exchange(other.m_plan, nullptr)}
         {
+            std::lock_guard lock(other.m_pendingWaitsMutex);
+            m_pendingWaits = std::move(other.m_pendingWaits);
         }
 
         PlanImpl& operator=(PlanImpl&& other) noexcept
@@ -68,12 +75,17 @@ namespace alpaka::fft::internal
                 m_layout = other.m_layout;
                 m_options = other.m_options;
                 m_plan = std::exchange(other.m_plan, nullptr);
+                {
+                    std::scoped_lock lock(m_pendingWaitsMutex, other.m_pendingWaitsMutex);
+                    m_pendingWaits = std::move(other.m_pendingWaits);
+                }
             }
             return *this;
         }
 
         ~PlanImpl()
         {
+            waitForPending();
             destroy();
         }
 
@@ -267,6 +279,14 @@ namespace alpaka::fft::internal
             throw std::invalid_argument("FFTW backend does not support user workspace.");
         }
 
+        void trackCompletion(auto& queue)
+        {
+            auto event = queue.getDevice().makeEvent();
+            queue.enqueue(event);
+            std::lock_guard lock(m_pendingWaitsMutex);
+            m_pendingWaits.emplace_back([event]() mutable { alpaka::onHost::wait(event); });
+        }
+
         void execute(auto& queue, auto const& in, auto& out, Direction direction)
         {
             auto layout = m_layout;
@@ -352,15 +372,7 @@ namespace alpaka::fft::internal
                     validate(direction == Direction::forward, "R2C only supports forward execution.");
                     auto* outCpx = reinterpret_cast<typename traits::complex_type*>(rawOutPtr);
                     queue.enqueueHostFn(
-                        [rawInPtr,
-                         outCpx,
-                         direction,
-                         nVals,
-                         inEmbedVals,
-                         outEmbedVals,
-                         inDistance,
-                         outDistance,
-                         batch]()
+                        [rawInPtr, outCpx, nVals, inEmbedVals, outEmbedVals, inDistance, outDistance, batch]()
                         {
                             if constexpr(std::same_as<real_type, float>)
                             {
@@ -407,15 +419,7 @@ namespace alpaka::fft::internal
                     validate(direction == Direction::backward, "C2R only supports backward execution.");
                     auto* inCpx = reinterpret_cast<typename traits::complex_type*>(rawInPtr);
                     queue.enqueueHostFn(
-                        [inCpx,
-                         rawOutPtr,
-                         direction,
-                         nVals,
-                         inEmbedVals,
-                         outEmbedVals,
-                         inDistance,
-                         outDistance,
-                         batch]()
+                        [inCpx, rawOutPtr, nVals, inEmbedVals, outEmbedVals, inDistance, outDistance, batch]()
                         {
                             if constexpr(std::same_as<real_type, float>)
                             {
@@ -459,6 +463,29 @@ namespace alpaka::fft::internal
                 }
             }
         }
+
+    private:
+        void waitForPending() noexcept
+        {
+            std::vector<std::function<void()>> waits;
+            {
+                std::lock_guard lock(m_pendingWaitsMutex);
+                waits.swap(m_pendingWaits);
+            }
+            for(auto& waitFn : waits)
+            {
+                try
+                {
+                    waitFn();
+                }
+                catch(...)
+                {
+                }
+            }
+        }
+
+        std::mutex m_pendingWaitsMutex;
+        std::vector<std::function<void()>> m_pendingWaits;
     };
 } // namespace alpaka::fft::internal
 #endif

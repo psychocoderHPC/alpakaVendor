@@ -8,6 +8,8 @@
 #include "alpaka/fft/internal/api/fft.hpp"
 #include "alpaka/fft/onHost/alloc.hpp"
 
+#include <memory>
+
 #include "SharedBufferFFT.hpp"
 
 namespace alpaka::fft::onHost
@@ -22,6 +24,7 @@ namespace alpaka::fft::onHost
         using api_type = T_Api;
         using value_type = T_Value;
         static constexpr std::size_t dim = T_dim;
+        using impl_type = alpaka::fft::internal::PlanImpl<T_Api, T_Value, T_dim>;
 
         Plan() = delete;
 
@@ -29,14 +32,14 @@ namespace alpaka::fft::onHost
             : m_transform{transform}
             , m_layout{layout}
             , m_options{options}
-            , m_impl{queue, transform, layout, options}
+            , m_impl{std::make_shared<impl_type>(queue, transform, layout, options)}
         {
         }
 
-        Plan(Plan const&) = delete;
-        Plan& operator=(Plan const&) = delete;
-        Plan(Plan&&) = default;
-        Plan& operator=(Plan&&) = default;
+        Plan(Plan const&) = default;
+        Plan& operator=(Plan const&) = default;
+        Plan(Plan&&) noexcept = default;
+        Plan& operator=(Plan&&) noexcept = default;
 
         [[nodiscard]] auto transform() const noexcept
         {
@@ -62,7 +65,7 @@ namespace alpaka::fft::onHost
          */
         [[nodiscard]] auto workspaceBytes() const noexcept
         {
-            return m_impl.workspaceBytes();
+            return m_impl->workspaceBytes();
         }
 
         /**
@@ -73,7 +76,7 @@ namespace alpaka::fft::onHost
          */
         void setWorkspace(void* ptr, std::size_t bytes)
         {
-            m_impl.setWorkspace(ptr, bytes);
+            m_impl->setWorkspace(ptr, bytes);
         }
 
         /**
@@ -85,14 +88,15 @@ namespace alpaka::fft::onHost
         template<typename T_In, typename T_Out>
         void execute(auto& queue, T_In const& in, T_Out& out, Direction direction)
         {
-            m_impl.execute(queue, in, out, direction);
+            m_impl->execute(queue, in, out, direction);
+            m_impl->trackCompletion(queue);
         }
 
     private:
         Transform m_transform;
         Layout<T_dim> m_layout;
         PlanOptions m_options;
-        alpaka::fft::internal::PlanImpl<T_Api, T_Value, T_dim> m_impl;
+        std::shared_ptr<impl_type> m_impl;
     };
 
     template<typename T_Value, std::size_t T_dim>

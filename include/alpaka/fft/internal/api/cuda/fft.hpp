@@ -7,6 +7,11 @@
 
 #include "alpaka/fft/internal/api/config.hpp"
 
+#include <functional>
+#include <memory>
+#include <mutex>
+#include <vector>
+
 #if ALPAKAV_HAS_CUFFT
 namespace alpaka::fft::internal
 {
@@ -60,6 +65,8 @@ namespace alpaka::fft::internal
             , m_handle{std::exchange(other.m_handle, 0)}
             , m_workspaceBytes{std::exchange(other.m_workspaceBytes, 0u)}
         {
+            std::lock_guard lock(other.m_pendingWaitsMutex);
+            m_pendingWaits = std::move(other.m_pendingWaits);
         }
 
         PlanImpl& operator=(PlanImpl&& other) noexcept
@@ -72,12 +79,17 @@ namespace alpaka::fft::internal
                 m_options = other.m_options;
                 m_handle = std::exchange(other.m_handle, 0);
                 m_workspaceBytes = std::exchange(other.m_workspaceBytes, 0u);
+                {
+                    std::scoped_lock lock(m_pendingWaitsMutex, other.m_pendingWaitsMutex);
+                    m_pendingWaits = std::move(other.m_pendingWaits);
+                }
             }
             return *this;
         }
 
         ~PlanImpl()
         {
+            waitForPending();
             destroy();
         }
 
@@ -194,66 +206,90 @@ namespace alpaka::fft::internal
             check(cufftSetWorkArea(m_handle, ptr), "cufftSetWorkArea");
         }
 
+        void trackCompletion(auto& queue)
+        {
+            auto event = queue.getDevice().makeEvent();
+            queue.enqueue(event);
+            std::lock_guard lock(m_pendingWaitsMutex);
+            m_pendingWaits.emplace_back([event]() mutable { alpaka::onHost::wait(event); });
+        }
+
         void execute(auto& queue, auto const& in, auto& out, Direction direction)
         {
-            auto handle = m_handle;
-            auto stream = queue.getNativeHandle();
             auto* rawInPtr = removeCvPtr(in.data());
             auto* rawOutPtr = removeCvPtr(out.data());
-            queue.enqueueHostFn(
-                [handle, stream, rawInPtr, rawOutPtr, direction]()
+            check(cufftSetStream(m_handle, queue.getNativeHandle()), "cufftSetStream");
+            if constexpr(ComplexScalar<T_Value>)
+            {
+                if constexpr(std::same_as<real_type, float>)
+                    check(
+                        cufftExecC2C(
+                            m_handle,
+                            reinterpret_cast<cufftComplex*>(rawInPtr),
+                            reinterpret_cast<cufftComplex*>(rawOutPtr),
+                            direction == Direction::forward ? CUFFT_FORWARD : CUFFT_INVERSE),
+                        "cufftExecC2C");
+                else
+                    check(
+                        cufftExecZ2Z(
+                            m_handle,
+                            reinterpret_cast<cufftDoubleComplex*>(rawInPtr),
+                            reinterpret_cast<cufftDoubleComplex*>(rawOutPtr),
+                            direction == Direction::forward ? CUFFT_FORWARD : CUFFT_INVERSE),
+                        "cufftExecZ2Z");
+            }
+            else
+            {
+                using InValue = std::remove_cv_t<std::remove_pointer_t<decltype(rawInPtr)>>;
+                if constexpr(std::same_as<InValue, real_type>)
                 {
-                    check(cufftSetStream(handle, stream), "cufftSetStream");
-                    if constexpr(ComplexScalar<T_Value>)
-                    {
-                        if constexpr(std::same_as<real_type, float>)
-                            check(
-                                cufftExecC2C(
-                                    handle,
-                                    reinterpret_cast<cufftComplex*>(rawInPtr),
-                                    reinterpret_cast<cufftComplex*>(rawOutPtr),
-                                    direction == Direction::forward ? CUFFT_FORWARD : CUFFT_INVERSE),
-                                "cufftExecC2C");
-                        else
-                            check(
-                                cufftExecZ2Z(
-                                    handle,
-                                    reinterpret_cast<cufftDoubleComplex*>(rawInPtr),
-                                    reinterpret_cast<cufftDoubleComplex*>(rawOutPtr),
-                                    direction == Direction::forward ? CUFFT_FORWARD : CUFFT_INVERSE),
-                                "cufftExecZ2Z");
-                    }
+                    validate(direction == Direction::forward, "R2C only supports forward execution.");
+                    if constexpr(std::same_as<real_type, float>)
+                        check(
+                            cufftExecR2C(m_handle, rawInPtr, reinterpret_cast<cufftComplex*>(rawOutPtr)),
+                            "cufftExecR2C");
                     else
-                    {
-                        using InValue = std::remove_cv_t<std::remove_pointer_t<decltype(rawInPtr)>>;
-                        if constexpr(std::same_as<InValue, real_type>)
-                        {
-                            validate(direction == Direction::forward, "R2C only supports forward execution.");
-                            if constexpr(std::same_as<real_type, float>)
-                                check(
-                                    cufftExecR2C(handle, rawInPtr, reinterpret_cast<cufftComplex*>(rawOutPtr)),
-                                    "cufftExecR2C");
-                            else
-                                check(
-                                    cufftExecD2Z(handle, rawInPtr, reinterpret_cast<cufftDoubleComplex*>(rawOutPtr)),
-                                    "cufftExecD2Z");
-                        }
-                        else
-                        {
-                            validate(direction == Direction::backward, "C2R only supports backward execution.");
-                            if constexpr(std::same_as<real_type, float>)
-                                check(
-                                    cufftExecC2R(handle, reinterpret_cast<cufftComplex*>(rawInPtr), rawOutPtr),
-                                    "cufftExecC2R");
-                            else
-                                check(
-                                    cufftExecZ2D(handle, reinterpret_cast<cufftDoubleComplex*>(rawInPtr), rawOutPtr),
-                                    "cufftExecZ2D");
-                        }
-                    }
-                });
-            alpaka::onHost::wait(queue);
+                        check(
+                            cufftExecD2Z(m_handle, rawInPtr, reinterpret_cast<cufftDoubleComplex*>(rawOutPtr)),
+                            "cufftExecD2Z");
+                }
+                else
+                {
+                    validate(direction == Direction::backward, "C2R only supports backward execution.");
+                    if constexpr(std::same_as<real_type, float>)
+                        check(
+                            cufftExecC2R(m_handle, reinterpret_cast<cufftComplex*>(rawInPtr), rawOutPtr),
+                            "cufftExecC2R");
+                    else
+                        check(
+                            cufftExecZ2D(m_handle, reinterpret_cast<cufftDoubleComplex*>(rawInPtr), rawOutPtr),
+                            "cufftExecZ2D");
+                }
+            }
         }
+
+    private:
+        void waitForPending() noexcept
+        {
+            std::vector<std::function<void()>> waits;
+            {
+                std::lock_guard lock(m_pendingWaitsMutex);
+                waits.swap(m_pendingWaits);
+            }
+            for(auto& waitFn : waits)
+            {
+                try
+                {
+                    waitFn();
+                }
+                catch(...)
+                {
+                }
+            }
+        }
+
+        std::mutex m_pendingWaitsMutex;
+        std::vector<std::function<void()>> m_pendingWaits;
     };
 } // namespace alpaka::fft::internal
 #endif
