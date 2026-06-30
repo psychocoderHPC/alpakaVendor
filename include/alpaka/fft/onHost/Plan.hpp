@@ -100,6 +100,16 @@ namespace alpaka::fft::onHost
         using index_type = alpaka::trait::GetValueType_t<T_Extents>;
         static constexpr uint32_t dim = T_Extents::dim();
 
+        /** Construct a plan builder with the given transform extents.
+         *
+         * Extents are required and must be non-zero. All other parameters have sensible defaults and can be
+         * configured through the builder methods.
+         */
+        PlanBuilder(alpaka::concepts::VectorOrScalar auto const& extents)
+            : m_layout{.extents = alpaka::fft::internal::normalizeVectorOrScalar<T_Extents>(extents)}
+        {
+        }
+
         /** Select a complex-to-complex transform. */
         PlanBuilder& c2c()
         {
@@ -118,18 +128,6 @@ namespace alpaka::fft::onHost
         PlanBuilder& c2r()
         {
             m_transform = Transform::c2r;
-            return *this;
-        }
-
-        /** Set the logical transform extents.
-         *
-         * Calling this does not affect previously set strides or distances. If strides and distances are not
-         * explicitly configured, contiguous defaults derived from the extents are used automatically at build
-         * time.
-         */
-        PlanBuilder& extents(alpaka::concepts::VectorOrScalar auto const& value)
-        {
-            m_layout.extents = alpaka::fft::internal::normalizeVectorOrScalar<T_Extents>(value);
             return *this;
         }
 
@@ -219,6 +217,17 @@ namespace alpaka::fft::onHost
         Layout<T_Extents> m_layout{};
         PlanOptions m_options{};
     };
+
+    /** Factory function to create a PlanBuilder with the given extents.
+     *
+     * Equivalent to `PlanBuilder<T_Value, T_Extents>{extents}` but shorter and more consistent with alpaka3
+     * naming conventions.
+     */
+    template<typename T_Value, alpaka::concepts::Vector T_Extents = alpaka::fft::Extents<uint32_t, 1u>>
+    [[nodiscard]] auto makePlan(alpaka::concepts::VectorOrScalar auto const& extents)
+    {
+        return PlanBuilder<T_Value, T_Extents>{extents};
+    }
 
     /** Convenience wrapper for `Direction::forward`. */
     template<typename T_Plan, typename T_Queue, typename T_In, typename T_Out>

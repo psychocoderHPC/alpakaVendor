@@ -53,7 +53,7 @@ TEMPLATE_LIST_TEST_CASE("Tutorial: Complete FFT example", "[doc][tutorial][full]
             0.0f};
     }
 
-    auto plan1d = alpaka::fft::onHost::PlanBuilder<Complex>{}.c2c().extents(n1d).build(queue);
+    auto plan1d = alpaka::fft::onHost::makePlan<Complex>(n1d).c2c().build(queue);
 
     alpaka::fft::onHost::executeForward(queue, plan1d, in1d, out1d);
     alpaka::onHost::wait(queue);
@@ -90,7 +90,7 @@ TEMPLATE_LIST_TEST_CASE("Tutorial: Complete FFT example", "[doc][tutorial][full]
             in2d.data()[ix * ny + iy] = Complex{std::exp(-(x * x + y * y) / 4.0f), 0.0f};
         }
 
-    auto plan2d = alpaka::fft::onHost::PlanBuilder<Complex, Extents2D>{}.c2c().extents(Extents2D{nx, ny}).build(queue);
+    auto plan2d = alpaka::fft::onHost::makePlan<Complex, Extents2D>(Extents2D{nx, ny}).c2c().build(queue);
 
     alpaka::fft::onHost::executeForward(queue, plan2d, in2d, out2d);
     alpaka::onHost::wait(queue);
@@ -125,12 +125,12 @@ TEMPLATE_LIST_TEST_CASE("Tutorial: Complete FFT example", "[doc][tutorial][full]
     for(std::size_t i = n; i < storage.physicalRealElements; ++i)
         buffer.data()[i] = 0.0f;
 
-    auto r2cPlan = alpaka::fft::onHost::PlanBuilder<float>{}.r2c().extents(n).inPlace().build(queue);
+    auto r2cPlan = alpaka::fft::onHost::makePlan<float>(n).r2c().inPlace().build(queue);
 
     auto complexBuffer = alpaka::fft::onHost::executeR2CInPlace(queue, r2cPlan, buffer);
     alpaka::onHost::wait(queue);
 
-    auto c2rPlan = alpaka::fft::onHost::PlanBuilder<float>{}.c2r().extents(n).inPlace().build(queue);
+    auto c2rPlan = alpaka::fft::onHost::makePlan<float>(n).c2r().inPlace().build(queue);
 
     auto recovered = alpaka::fft::onHost::executeC2RInPlace(queue, c2rPlan, complexBuffer);
     alpaka::onHost::wait(queue);

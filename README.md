@@ -31,25 +31,33 @@ alpakaVendor is a header-only C++20 library that provides portable, type-safe ab
 #include <alpaka/alpaka.hpp>
 #include <alpaka/fft.hpp>
 
-using Complex = alpaka::math::Complex<float>;
+#include <cmath>
+#include <numbers>
 
 // Create device and queue
 auto dev = alpaka::onHost::makeHostDevice();
 auto queue = dev.makeQueue();
 
 // Allocate FFT-managed buffers
-constexpr std::size_t N = 1024;
-auto in  = alpaka::fft::onHost::allocForFFT<Complex>(dev, N);
-auto out = alpaka::fft::onHost::allocForFFT<Complex>(dev, N);
+constexpr uint32_t N = 1024;
+constexpr float frequency = 5.0f;  // signal frequency in cycles per sample
+auto in  = alpaka::fft::onHost::allocForFFT<float>(dev, N);
+auto out = alpaka::fft::onHost::allocForFFT<alpaka::math::Complex<float>>(dev, N);
 
-// Create plan and execute
-auto plan = alpaka::fft::onHost::PlanBuilder<Complex>{}
-                .c2c()
-                .extents(N)
+// Generate a sine wave
+for(uint32_t i = 0; i < N; ++i)
+    in.data()[i] = std::sin(2.0f * std::numbers::pi_v<float> * frequency * float(i) / float(N));
+
+// Create plan and execute R2C transform
+auto plan = alpaka::fft::onHost::makePlan<float>(N)
+                .r2c()
+                .outOfPlace()
                 .build(queue);
 
 alpaka::fft::onHost::executeForward(queue, plan, in, out);
 alpaka::onHost::wait(queue);
+
+// The spectrum peak should be at bin 'frequency'
 ```
 
 ## Requirements
@@ -105,6 +113,8 @@ target_link_libraries(your_target PRIVATE alpakaVendor::alpakaVendor)
 The backend is inferred from the queue you pass to `build()`:
 
 ```cpp
+auto builder = alpaka::fft::onHost::makePlan<float>(1024u).r2c();
+
 // CPU (FFTW)
 auto hostDevice = alpaka::onHost::makeHostDevice();
 auto hostQueue = hostDevice.makeQueue();
