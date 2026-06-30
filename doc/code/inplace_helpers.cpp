@@ -41,8 +41,8 @@ TEMPLATE_LIST_TEST_CASE("Padding helpers", "[doc][inplace][helpers]", TestBacken
     // 2D examples
     using Extents2D = Extents<uint32_t, 2u>;
     constexpr auto extents2d = Extents2D{4u, 9u};
-    auto complexExtents2d = r2cLogicalComplexExtents(extents2d);
-    auto paddedExtents2d = r2cInPlaceRealStorageExtents(extents2d);
+    auto complexExtents2d = r2cComplexExtent(extents2d);
+    auto paddedExtents2d = r2cPaddedRealExtent(extents2d);
 
     CHECK((complexExtents2d == Extents2D{4u, 5u}));
     CHECK((paddedExtents2d == Extents2D{4u, 10u}));

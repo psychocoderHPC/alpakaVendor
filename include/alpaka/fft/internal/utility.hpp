@@ -65,9 +65,9 @@ namespace alpaka::fft::internal
         Placement placement)
     {
         if(placement == Placement::inPlace && transform == Transform::r2c)
-            return r2cInPlaceRealStorageExtents(layout.extents);
+            return r2cPaddedRealExtent(layout.extents);
         if(transform == Transform::c2r)
-            return r2cLogicalComplexExtents(layout.extents);
+            return r2cComplexExtent(layout.extents);
         return layout.extents;
     }
 
@@ -78,9 +78,9 @@ namespace alpaka::fft::internal
         Placement placement)
     {
         if(placement == Placement::inPlace && transform == Transform::r2c)
-            return r2cLogicalComplexExtents(layout.extents);
+            return r2cComplexExtent(layout.extents);
         if(transform == Transform::r2c)
-            return r2cLogicalComplexExtents(layout.extents);
+            return r2cComplexExtent(layout.extents);
         return layout.extents;
     }
 

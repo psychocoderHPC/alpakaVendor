@@ -111,11 +111,11 @@ Padding helpers
 
        // Logical complex extents for R2C transform
        template<std::size_t T_dim>
-       [[nodiscard]] constexpr T_Extents r2cLogicalComplexExtents(T_Extents realExtents);
+       [[nodiscard]] constexpr T_Extents r2cComplexExtent(T_Extents realExtents);
 
        // Physical real storage extents for in-place R2C
        template<std::size_t T_dim>
-       [[nodiscard]] constexpr T_Extents r2cInPlaceRealStorageExtents(T_Extents realExtents);
+       [[nodiscard]] constexpr T_Extents r2cPaddedRealExtent(T_Extents realExtents);
 
        // Product of all extents
        template<std::size_t T_dim>
