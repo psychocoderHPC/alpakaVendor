@@ -13,8 +13,8 @@
 
 namespace alpaka::fft::onHost::internal
 {
-    template<typename T_Type, typename T_Buffer>
-    [[nodiscard]] auto wrapBuffer(T_Buffer&& buffer, auto const& fftExtents)
+    template<typename T_Type, typename T_Buffer, alpaka::concepts::Vector T_FftExtents>
+    [[nodiscard]] auto wrapBuffer(T_Buffer&& buffer, FftBufferExtents<T_FftExtents> const& fftExtents)
     {
         using Buffer = std::decay_t<T_Buffer>;
         using Api = decltype(alpaka::getApi(std::declval<Buffer>()));
@@ -23,9 +23,12 @@ namespace alpaka::fft::onHost::internal
         auto managedDeleter = std::make_shared<alpaka::onHost::internal::ManagedDealloc>([owner = rawOwner]() mutable
                                                                                          { owner.reset(); });
         auto metadata = std::make_shared<FftBufferMetadata<ExtentsVec>>();
-        metadata->extents = fftExtents;
+        metadata->extents = FftBufferExtents<ExtentsVec>{
+            .logicalRealExtents = alpaka::fft::internal::castVec<ExtentsVec>(fftExtents.logicalRealExtents),
+            .physicalRealExtents = alpaka::fft::internal::castVec<ExtentsVec>(fftExtents.physicalRealExtents),
+            .logicalComplexExtents = alpaka::fft::internal::castVec<ExtentsVec>(fftExtents.logicalComplexExtents)};
         std::size_t bytes = sizeof(T_Type);
-        for(std::size_t i = 0; i < ExtentsVec::dim(); ++i)
+        for(uint32_t i = 0u; i < ExtentsVec::dim(); ++i)
             bytes *= static_cast<std::size_t>(rawOwner->getExtents()[i]);
         return SharedBufferFFT<Api, T_Type, ExtentsVec, alpaka::Alignment<>>{
             Api{},
@@ -38,93 +41,67 @@ namespace alpaka::fft::onHost::internal
             alpaka::Alignment<>{}};
     }
 
-    template<typename T_Type>
-    [[nodiscard]] auto fftAllocationExtents(auto const& extents)
+    template<typename T_Type, alpaka::concepts::Vector T_Extents>
+    [[nodiscard]] auto fftAllocationExtents(T_Extents const& logicalExtents)
     {
-        auto logicalExtents = alpaka::fft::internal::toExtents<std::decay_t<decltype(extents)>::dim()>(extents);
         auto storage = makeFftBufferExtents<T_Type>(logicalExtents);
         if constexpr(RealScalar<T_Type>)
-            return alpaka::fft::internal::toVec(storage.physicalRealExtents);
+            return storage.physicalRealExtents;
         else
-            return alpaka::fft::internal::toVec(storage.logicalComplexExtents);
+            return storage.logicalComplexExtents;
     }
 } // namespace alpaka::fft::onHost::internal
 
 namespace alpaka::fft::onHost
 {
-    /**
-     * Allocate an FFT-managed buffer.
-     *
-     * Real-valued allocations reserve padded physical storage so the returned buffer can be reinterpreted between
-     * real and complex FFT views. Complex-valued allocations keep their logical complex extents and can be
-     * reinterpreted back to their matching real FFT view.
-     *
-     * For manual, non-FFT-managed storage use `alpaka::onHost::alloc()` directly.
-     */
     template<typename T_Type>
-    [[nodiscard]] auto allocForFFT(alpaka::onHost::internal::concepts::Device auto const& device, auto const& extents)
+    [[nodiscard]] auto allocForFFT(
+        alpaka::onHost::internal::concepts::Device auto const& device,
+        alpaka::concepts::VectorOrScalar auto const& extents)
     {
-        auto logicalExtents = alpaka::fft::internal::toExtents<std::decay_t<decltype(extents)>::dim()>(extents);
+        auto logicalExtents = alpaka::fft::internal::asExtentVec(extents);
         auto storage = makeFftBufferExtents<T_Type>(logicalExtents);
-        auto fftExtents = internal::fftAllocationExtents<T_Type>(extents);
+        auto fftExtents = internal::fftAllocationExtents<T_Type>(logicalExtents);
         return internal::wrapBuffer<T_Type>(alpaka::onHost::alloc<T_Type>(device, fftExtents), storage);
     }
 
-    /**
-     * Allocate a unified FFT-managed buffer.
-     *
-     * Real-valued allocations reserve padded physical storage so the returned buffer can be reinterpreted between
-     * real and complex FFT views. Complex-valued allocations keep their logical complex extents and can be
-     * reinterpreted back to their matching real FFT view.
-     *
-     * For manual, non-FFT-managed storage use `alpaka::onHost::allocUnified()` directly.
-     */
     template<typename T_Type>
     [[nodiscard]] auto allocUnifiedForFFT(
         alpaka::onHost::internal::concepts::Device auto const& device,
-        auto const& extents)
+        alpaka::concepts::VectorOrScalar auto const& extents)
     {
-        auto logicalExtents = alpaka::fft::internal::toExtents<std::decay_t<decltype(extents)>::dim()>(extents);
+        auto logicalExtents = alpaka::fft::internal::asExtentVec(extents);
         auto storage = makeFftBufferExtents<T_Type>(logicalExtents);
-        auto fftExtents = internal::fftAllocationExtents<T_Type>(extents);
+        auto fftExtents = internal::fftAllocationExtents<T_Type>(logicalExtents);
         return internal::wrapBuffer<T_Type>(alpaka::onHost::allocUnified<T_Type>(device, fftExtents), storage);
     }
 
-    /**
-     * Allocate a mapped FFT-managed buffer.
-     *
-     * The returned buffer stores FFT reinterpretation metadata and may be converted between matching real and complex
-     * FFT views.
-     */
     template<typename T_Type>
     [[nodiscard]] auto allocMappedForFFT(
         alpaka::onHost::internal::concepts::Device auto const& device,
-        auto const& extents)
+        alpaka::concepts::VectorOrScalar auto const& extents)
     {
-        auto logicalExtents = alpaka::fft::internal::toExtents<std::decay_t<decltype(extents)>::dim()>(extents);
+        auto logicalExtents = alpaka::fft::internal::asExtentVec(extents);
         auto storage = makeFftBufferExtents<T_Type>(logicalExtents);
-        auto fftExtents = internal::fftAllocationExtents<T_Type>(extents);
+        auto fftExtents = internal::fftAllocationExtents<T_Type>(logicalExtents);
         return internal::wrapBuffer<T_Type>(alpaka::onHost::allocMapped<T_Type>(device, fftExtents), storage);
     }
 
-    /**
-     * Allocate a deferred FFT-managed buffer from a queue.
-     */
     template<typename T_Type, typename T_Device, alpaka::concepts::QueueKind T_QueueKind>
     [[nodiscard]] auto allocDeferredForFFT(
         alpaka::onHost::Queue<T_Device, T_QueueKind> const& queue,
-        auto const& extents)
+        alpaka::concepts::VectorOrScalar auto const& extents)
     {
-        auto logicalExtents = alpaka::fft::internal::toExtents<std::decay_t<decltype(extents)>::dim()>(extents);
+        auto logicalExtents = alpaka::fft::internal::asExtentVec(extents);
         auto storage = makeFftBufferExtents<T_Type>(logicalExtents);
-        auto fftExtents = internal::fftAllocationExtents<T_Type>(extents);
+        auto fftExtents = internal::fftAllocationExtents<T_Type>(logicalExtents);
         return internal::wrapBuffer<T_Type>(alpaka::onHost::allocDeferred<T_Type>(queue, fftExtents), storage);
     }
 
     template<typename T_Type, typename T_Device, alpaka::concepts::QueueKind T_QueueKind>
     [[nodiscard]] auto allocDeferedForFFT(
         alpaka::onHost::Queue<T_Device, T_QueueKind> const& queue,
-        auto const& extents)
+        alpaka::concepts::VectorOrScalar auto const& extents)
     {
         return allocDeferredForFFT<T_Type>(queue, extents);
     }

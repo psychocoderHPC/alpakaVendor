@@ -35,7 +35,7 @@ TEMPLATE_LIST_TEST_CASE(
     auto deviceExec = getDeviceExecutorOrSkipTest(TestType::makeDict());
     auto device = getDevice(deviceExec);
 
-    auto buffer = alpaka::fft::onHost::allocForFFT<float>(device, alpaka::Vec<std::size_t, 1u>{8u});
+    auto buffer = alpaka::fft::onHost::allocForFFT<float>(device, 8u);
     using Buffer = std::decay_t<decltype(buffer)>;
     using ConstBuffer = alpaka::internal::CopyConstructableDataSource<Buffer>::InnerConst;
 
@@ -67,23 +67,22 @@ TEMPLATE_LIST_TEST_CASE(
 
     using namespace alpaka::fft;
 
-    auto storage = makeInPlaceRealStorage<float>(Extents<1>{8u});
-    auto realBuffer = alpaka::fft::onHost::allocForFFT<float>(device, alpaka::Vec<std::size_t, 1u>{8u});
+    auto storage = makeInPlaceRealStorage<float>(8u);
+    auto realBuffer = alpaka::fft::onHost::allocForFFT<float>(device, 8u);
 
     CHECK(realBuffer.byteCapacity() == storage.physicalRealElements * sizeof(float));
-    CHECK(alpaka::fft::internal::toExtents<1>(realBuffer.getExtents()) == storage.physicalRealExtents);
+    CHECK(realBuffer.getExtents() == storage.physicalRealExtents);
 
     auto complexBuffer = realBuffer.asComplex();
     CHECK(complexBuffer.byteCapacity() == realBuffer.byteCapacity());
     CHECK(complexBuffer.getUseCount() >= 2);
-    CHECK(alpaka::fft::internal::toExtents<1>(complexBuffer.getExtents()) == storage.logicalComplexExtents);
+    CHECK(complexBuffer.getExtents() == storage.logicalComplexExtents);
 
     auto logicalRealBuffer = complexBuffer.asReal();
-    CHECK(alpaka::fft::internal::toExtents<1>(logicalRealBuffer.getExtents()) == storage.logicalRealExtents);
+    CHECK(logicalRealBuffer.getExtents() == storage.logicalRealExtents);
 
-    auto manualComplexBuffer = realBuffer.template reinterpretBuffer<Complex_t<float>>(
-        alpaka::fft::internal::toVec(storage.logicalComplexExtents));
-    CHECK(alpaka::fft::internal::toExtents<1>(manualComplexBuffer.getExtents()) == storage.logicalComplexExtents);
+    auto manualComplexBuffer = realBuffer.template reinterpretBuffer<Complex_t<float>>(storage.logicalComplexExtents);
+    CHECK(manualComplexBuffer.getExtents() == storage.logicalComplexExtents);
 }
 
 TEMPLATE_LIST_TEST_CASE(
@@ -94,13 +93,12 @@ TEMPLATE_LIST_TEST_CASE(
     auto deviceExec = getDeviceExecutorOrSkipTest(TestType::makeDict());
     auto device = getDevice(deviceExec);
 
-    auto realBuffer = alpaka::fft::onHost::allocForFFT<float>(device, alpaka::Vec<std::size_t, 1u>{8u});
+    auto realBuffer = alpaka::fft::onHost::allocForFFT<float>(device, 8u);
     auto sameReal = realBuffer.asReal();
     CHECK(sameReal.data() == realBuffer.data());
     CHECK(sameReal.getUseCount() == realBuffer.getUseCount());
 
-    auto complexBuffer
-        = alpaka::fft::onHost::allocForFFT<alpaka::math::Complex<float>>(device, alpaka::Vec<std::size_t, 1u>{5u});
+    auto complexBuffer = alpaka::fft::onHost::allocForFFT<alpaka::math::Complex<float>>(device, 5u);
     auto sameComplex = complexBuffer.asComplex();
     CHECK(sameComplex.data() == complexBuffer.data());
     CHECK(sameComplex.getUseCount() == complexBuffer.getUseCount());
@@ -117,7 +115,7 @@ TEMPLATE_LIST_TEST_CASE(
     using namespace alpaka::fft;
 
     auto queue = device.makeQueue();
-    auto extents = alpaka::Vec<std::size_t, 1u>{16u};
+    auto extents = Extents<uint16_t, 1u>{16u};
 
     auto plain = alpaka::fft::onHost::allocForFFT<float>(device, extents);
     auto unified = alpaka::fft::onHost::allocUnifiedForFFT<float>(device, extents);

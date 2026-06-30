@@ -32,25 +32,25 @@ TEMPLATE_LIST_TEST_CASE("In-place R2C/C2R roundtrip", "[doc][inplace][roundtrip]
 
     auto queue = device.makeQueue();
 
-    constexpr std::size_t n = 16u;
+    constexpr uint32_t n = 16u;
 
-    auto storage = makeInPlaceRealStorage<float>(Extents<1u>{n});
+    auto storage = makeInPlaceRealStorage<float>(n);
 
-    auto buffer = alpaka::fft::onHost::allocUnifiedForFFT<float>(device, alpaka::Vec<std::size_t, 1u>{n});
+    auto buffer = alpaka::fft::onHost::allocUnifiedForFFT<float>(device, n);
 
     for(std::size_t i = 0; i < n; ++i)
         buffer.data()[i] = std::sin(2.0f * std::numbers::pi_v<float> * float(i) / float(n));
     for(std::size_t i = n; i < storage.physicalRealElements; ++i)
         buffer.data()[i] = 0.0f;
 
-    auto r2cPlan = alpaka::fft::onHost::PlanBuilder<float, 1>{}.r2c().extents({n}).inPlace().build(queue);
+    auto r2cPlan = alpaka::fft::onHost::PlanBuilder<float>{}.r2c().extents(n).inPlace().build(queue);
 
     auto complexBuffer = alpaka::fft::onHost::executeR2CInPlace(queue, r2cPlan, buffer);
     alpaka::onHost::wait(queue);
 
     CHECK(complexBuffer.getExtents()[0] == storage.logicalComplexElements);
 
-    auto c2rPlan = alpaka::fft::onHost::PlanBuilder<float, 1>{}.c2r().extents({n}).inPlace().build(queue);
+    auto c2rPlan = alpaka::fft::onHost::PlanBuilder<float>{}.c2r().extents(n).inPlace().build(queue);
 
     auto recovered = alpaka::fft::onHost::executeC2RInPlace(queue, c2rPlan, complexBuffer);
     alpaka::onHost::wait(queue);

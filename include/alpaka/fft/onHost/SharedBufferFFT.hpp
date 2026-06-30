@@ -21,7 +21,7 @@ namespace alpaka::fft::onHost
     template<alpaka::concepts::Vector T_Extents>
     struct FftBufferMetadata
     {
-        std::optional<FftBufferExtents<T_Extents::dim()>> extents{};
+        std::optional<FftBufferExtents<T_Extents>> extents{};
     };
 
     template<alpaka::concepts::Api T_Api, typename T_Type, alpaka::concepts::Vector T_Extents>
@@ -55,12 +55,6 @@ namespace alpaka::fft::onHost
         return metadata.extents->physicalRealExtents;
     }
 
-    /**
-     * Shared alpaka view with FFT storage metadata.
-     *
-     * The same allocation can be reinterpreted between matching real and complex FFT views while keeping shared
-     * lifetime management and padded-storage information.
-     */
     template<
         alpaka::concepts::Api T_Api,
         typename T_Type,
@@ -133,22 +127,11 @@ namespace alpaka::fft::onHost
             return static_cast<BaseView>(*this);
         }
 
-        /**
-         * Register work that runs when the last shared view releases the allocation.
-         *
-         * Actions execute during destruction, so they should not depend on temporaries that may already be gone.
-         */
         void addDestructorAction(std::function<void()>&& action)
         {
             m_deleter->addAction(ALPAKA_FORWARD(action));
         }
 
-        /**
-         * Delay final destruction until `alpaka::onHost::wait(any)` completes.
-         *
-         * This is useful when the buffer may still be referenced by asynchronous work at the moment the last host
-         * handle disappears.
-         */
         void destructorWaitFor(auto const& any)
         {
             addDestructorAction([any]() { alpaka::onHost::wait(any); });
@@ -174,21 +157,15 @@ namespace alpaka::fft::onHost
             return *m_metadata;
         }
 
-        /**
-         * Reinterpret the same bytes as another element type and extents.
-         *
-         * No data is rearranged. The caller must provide extents whose addressed byte range fits into the original
-         * allocation and whose layout matches the way the backend produced the data.
-         */
         template<typename T_Other>
         [[nodiscard]] auto reinterpretBuffer(alpaka::concepts::VectorOrScalar auto const& extents) const
         {
             using OtherExtents = typename T_Extents::UniVec;
-            OtherExtents const extentsVec = extents;
+            auto const extentsVec = internal::normalizeVectorOrScalar<OtherExtents>(extents);
             auto const neededBytes = [&]()
             {
                 std::size_t r = sizeof(T_Other);
-                for(std::size_t i = 0; i < OtherExtents::dim(); ++i)
+                for(uint32_t i = 0u; i < OtherExtents::dim(); ++i)
                     r *= static_cast<std::size_t>(extentsVec[i]);
                 return r;
             }();
@@ -206,33 +183,20 @@ namespace alpaka::fft::onHost
                 T_MemAlignment{}};
         }
 
-        /**
-         * Return the logical complex FFT view for this storage.
-         *
-         * For real allocations this hides any padded tail elements that exist only to satisfy in-place R2C layout
-         * requirements.
-         */
         [[nodiscard]] auto asComplex() const
         {
             if constexpr(ComplexScalar<T_Type>)
                 return *this;
             else
-                return this->template reinterpretBuffer<Complex_t<T_Type>>(
-                    internal::toVec(getComplexExtents(*m_metadata)));
+                return this->template reinterpretBuffer<Complex_t<T_Type>>(getComplexExtents(*m_metadata));
         }
 
-        /**
-         * Return the logical real FFT view for this storage.
-         *
-         * For complex allocations this reconstructs the matching real extents from Hermitian-packed storage, so the
-         * visible extent may be smaller than the underlying physical allocation.
-         */
         [[nodiscard]] auto asReal() const
         {
             if constexpr(RealScalar<T_Type>)
                 return *this;
             else
-                return this->template reinterpretBuffer<Real_t<T_Type>>(internal::toVec(getRealExtents(*m_metadata)));
+                return this->template reinterpretBuffer<Real_t<T_Type>>(getRealExtents(*m_metadata));
         }
     };
 } // namespace alpaka::fft::onHost

@@ -29,6 +29,7 @@ TEMPLATE_LIST_TEST_CASE("Tutorial: Complete FFT example", "[doc][tutorial][full]
     auto device = devSelector.makeDevice(0);
 
     using Complex = alpaka::math::Complex<float>;
+    using Extents2D = alpaka::fft::Extents<uint32_t, 2u>;
 
     // Create device and queue
     auto queue = device.makeQueue();
@@ -39,9 +40,9 @@ TEMPLATE_LIST_TEST_CASE("Tutorial: Complete FFT example", "[doc][tutorial][full]
     // =====================================================================
 
     //! [tutorial-c2c]
-    constexpr std::size_t n1d = 16u;
-    auto in1d = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, alpaka::Vec<std::size_t, 1u>{n1d});
-    auto out1d = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, alpaka::Vec<std::size_t, 1u>{n1d});
+    constexpr uint32_t n1d = 16u;
+    auto in1d = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, n1d);
+    auto out1d = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, n1d);
 
     // Initialize: sum of two sinusoids
     for(std::size_t i = 0; i < n1d; ++i)
@@ -52,7 +53,7 @@ TEMPLATE_LIST_TEST_CASE("Tutorial: Complete FFT example", "[doc][tutorial][full]
             0.0f};
     }
 
-    auto plan1d = alpaka::fft::onHost::PlanBuilder<Complex, 1>{}.c2c().extents({n1d}).build(queue);
+    auto plan1d = alpaka::fft::onHost::PlanBuilder<Complex>{}.c2c().extents(n1d).build(queue);
 
     alpaka::fft::onHost::executeForward(queue, plan1d, in1d, out1d);
     alpaka::onHost::wait(queue);
@@ -75,10 +76,10 @@ TEMPLATE_LIST_TEST_CASE("Tutorial: Complete FFT example", "[doc][tutorial][full]
     // =====================================================================
 
     //! [tutorial-2d]
-    constexpr std::size_t nx = 4u;
-    constexpr std::size_t ny = 4u;
-    auto in2d = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, alpaka::Vec<std::size_t, 2u>{nx, ny});
-    auto out2d = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, alpaka::Vec<std::size_t, 2u>{nx, ny});
+    constexpr uint32_t nx = 4u;
+    constexpr uint32_t ny = 4u;
+    auto in2d = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, Extents2D{nx, ny});
+    auto out2d = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, Extents2D{nx, ny});
 
     // Initialize: 2D Gaussian
     for(std::size_t ix = 0; ix < nx; ++ix)
@@ -89,7 +90,7 @@ TEMPLATE_LIST_TEST_CASE("Tutorial: Complete FFT example", "[doc][tutorial][full]
             in2d.data()[ix * ny + iy] = Complex{std::exp(-(x * x + y * y) / 4.0f), 0.0f};
         }
 
-    auto plan2d = alpaka::fft::onHost::PlanBuilder<Complex, 2>{}.c2c().extents({nx, ny}).build(queue);
+    auto plan2d = alpaka::fft::onHost::PlanBuilder<Complex, Extents2D>{}.c2c().extents(Extents2D{nx, ny}).build(queue);
 
     alpaka::fft::onHost::executeForward(queue, plan2d, in2d, out2d);
     alpaka::onHost::wait(queue);
@@ -114,9 +115,9 @@ TEMPLATE_LIST_TEST_CASE("Tutorial: Complete FFT example", "[doc][tutorial][full]
     // =====================================================================
 
     //! [tutorial-inplace]
-    constexpr std::size_t n = 8u;
-    auto storage = alpaka::fft::makeInPlaceRealStorage<float>(alpaka::fft::Extents<1u>{n});
-    auto buffer = alpaka::fft::onHost::allocUnifiedForFFT<float>(device, alpaka::Vec<std::size_t, 1u>{n});
+    constexpr uint32_t n = 8u;
+    auto storage = alpaka::fft::makeInPlaceRealStorage<float>(n);
+    auto buffer = alpaka::fft::onHost::allocUnifiedForFFT<float>(device, n);
 
     // Initialize: square wave
     for(std::size_t i = 0; i < n; ++i)
@@ -124,12 +125,12 @@ TEMPLATE_LIST_TEST_CASE("Tutorial: Complete FFT example", "[doc][tutorial][full]
     for(std::size_t i = n; i < storage.physicalRealElements; ++i)
         buffer.data()[i] = 0.0f;
 
-    auto r2cPlan = alpaka::fft::onHost::PlanBuilder<float, 1>{}.r2c().extents({n}).inPlace().build(queue);
+    auto r2cPlan = alpaka::fft::onHost::PlanBuilder<float>{}.r2c().extents(n).inPlace().build(queue);
 
     auto complexBuffer = alpaka::fft::onHost::executeR2CInPlace(queue, r2cPlan, buffer);
     alpaka::onHost::wait(queue);
 
-    auto c2rPlan = alpaka::fft::onHost::PlanBuilder<float, 1>{}.c2r().extents({n}).inPlace().build(queue);
+    auto c2rPlan = alpaka::fft::onHost::PlanBuilder<float>{}.c2r().extents(n).inPlace().build(queue);
 
     auto recovered = alpaka::fft::onHost::executeC2RInPlace(queue, c2rPlan, complexBuffer);
     alpaka::onHost::wait(queue);

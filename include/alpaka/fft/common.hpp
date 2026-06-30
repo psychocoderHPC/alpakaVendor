@@ -8,9 +8,10 @@
 #include <alpaka/alpaka.hpp>
 #include <alpaka/math/Complex.hpp>
 
-#include <array>
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -48,21 +49,25 @@ namespace alpaka::fft
         userProvided
     };
 
-    template<std::size_t T_dim>
-    using Extents = std::array<std::size_t, T_dim>;
+    template<typename T_Index, uint32_t T_dim>
+    using Extents = alpaka::Vec<T_Index, T_dim>;
 
-    template<std::size_t T_dim>
-    using Strides = std::array<std::size_t, T_dim>;
+    template<typename T_Index, uint32_t T_dim>
+    using Strides = alpaka::Vec<T_Index, T_dim>;
 
-    template<std::size_t T_dim>
+    template<alpaka::concepts::Vector T_Extents>
     struct Layout
     {
-        Extents<T_dim> extents{};
-        Strides<T_dim> inStrides{};
-        Strides<T_dim> outStrides{};
-        std::size_t batch = 1u;
-        std::size_t inDistance = 0u;
-        std::size_t outDistance = 0u;
+        using extents_type = T_Extents;
+        using index_type = alpaka::trait::GetValueType_t<T_Extents>;
+        static constexpr uint32_t dim = T_Extents::dim();
+
+        T_Extents extents{};
+        T_Extents inStrides{};
+        T_Extents outStrides{};
+        index_type batch = static_cast<index_type>(1u);
+        index_type inDistance = static_cast<index_type>(0u);
+        index_type outDistance = static_cast<index_type>(0u);
     };
 
     struct PlanOptions
@@ -124,21 +129,40 @@ namespace alpaka::fft
     template<typename T>
     using Real_t = typename Real<T>::type;
 
-    template<std::size_t T_dim>
-    [[nodiscard]] constexpr std::size_t product(Extents<T_dim> const& extents)
+    template<typename T_From, typename T_To>
+    inline constexpr bool isLosslessIntegralUpcastV = std::integral<T_From> && std::integral<T_To>
+        && (std::same_as<std::remove_cv_t<T_From>, std::remove_cv_t<T_To>>
+            || ((std::is_signed_v<T_From> == std::is_signed_v<T_To>)
+                && (std::numeric_limits<T_To>::digits >= std::numeric_limits<T_From>::digits))
+            || (std::is_unsigned_v<T_From> && std::is_signed_v<T_To>
+                && (std::numeric_limits<T_To>::digits > std::numeric_limits<T_From>::digits)));
+
+    template<typename T_Value, uint32_t T_dim>
+    [[nodiscard]] constexpr auto filledVec(T_Value value)
     {
-        std::size_t result = 1u;
-        for(auto e : extents)
-            result *= e;
+        alpaka::Vec<T_Value, T_dim> result{};
+        for(uint32_t i = 0u; i < T_dim; ++i)
+            result[i] = value;
         return result;
     }
 
-    template<std::size_t T_dim>
-    [[nodiscard]] constexpr Strides<T_dim> contiguousStrides(Extents<T_dim> const& extents)
+    template<alpaka::concepts::Vector T_Extents>
+    [[nodiscard]] constexpr auto product(T_Extents const& extents)
     {
-        Strides<T_dim> strides{};
-        std::size_t current = 1u;
-        for(std::size_t i = T_dim; i-- > 0u;)
+        using index_type = alpaka::trait::GetValueType_t<T_Extents>;
+        index_type result = static_cast<index_type>(1u);
+        for(uint32_t i = 0u; i < T_Extents::dim(); ++i)
+            result *= extents[i];
+        return result;
+    }
+
+    template<alpaka::concepts::Vector T_Extents>
+    [[nodiscard]] constexpr auto contiguousStrides(T_Extents const& extents)
+    {
+        using index_type = alpaka::trait::GetValueType_t<T_Extents>;
+        T_Extents strides{};
+        index_type current = static_cast<index_type>(1u);
+        for(uint32_t i = T_Extents::dim(); i-- > 0u;)
         {
             strides[i] = current;
             current *= extents[i];
@@ -146,128 +170,130 @@ namespace alpaka::fft
         return strides;
     }
 
-    /**
-     * Return the packed complex extent for the last dimension of an R2C transform.
-     *
-     * Only the non-redundant Hermitian half-spectrum is stored.
-     */
-    [[nodiscard]] constexpr std::size_t r2cComplexExtent(std::size_t realExtent)
+    template<typename T_Index>
+    requires std::integral<std::remove_cv_t<T_Index>>
+    [[nodiscard]] constexpr T_Index r2cComplexExtent(T_Index realExtent)
     {
-        return realExtent / 2u + 1u;
+        return realExtent / static_cast<T_Index>(2u) + static_cast<T_Index>(1u);
     }
 
-    /**
-     * Recover the logical real extent from a packed C2R spectrum extent.
-     *
-     * This describes the transform domain size, not the padded in-place storage size.
-     */
-    [[nodiscard]] constexpr std::size_t c2rLogicalRealExtent(std::size_t complexExtent)
+    template<typename T_Index>
+    requires std::integral<std::remove_cv_t<T_Index>>
+    [[nodiscard]] constexpr T_Index c2rLogicalRealExtent(T_Index complexExtent)
     {
-        if(complexExtent == 0u)
+        if(complexExtent == static_cast<T_Index>(0u))
             throw std::invalid_argument("Complex extent for C2R must be non-zero.");
-        return 2u * (complexExtent - 1u);
+        return static_cast<T_Index>(2u) * (complexExtent - static_cast<T_Index>(1u));
     }
 
-    /** Return the padded real-storage extent required for in-place C2R/R2C layouts. */
-    [[nodiscard]] constexpr std::size_t c2rPaddedRealExtent(std::size_t complexExtent)
+    template<typename T_Index>
+    requires std::integral<std::remove_cv_t<T_Index>>
+    [[nodiscard]] constexpr T_Index c2rPaddedRealExtent(T_Index complexExtent)
     {
-        return 2u * complexExtent;
+        return static_cast<T_Index>(2u) * complexExtent;
     }
 
-    /** Return the padded real-storage extent required for in-place R2C layouts. */
-    [[nodiscard]] constexpr std::size_t r2cPaddedRealExtent(std::size_t realExtent)
+    template<typename T_Index>
+    requires std::integral<std::remove_cv_t<T_Index>>
+    [[nodiscard]] constexpr T_Index r2cPaddedRealExtent(T_Index realExtent)
     {
-        return 2u * r2cComplexExtent(realExtent);
+        return static_cast<T_Index>(2u) * r2cComplexExtent(realExtent);
     }
 
-    template<std::size_t T_dim>
-    [[nodiscard]] constexpr Extents<T_dim> r2cLogicalComplexExtents(Extents<T_dim> extents)
+    template<alpaka::concepts::Vector T_Extents>
+    [[nodiscard]] constexpr T_Extents r2cLogicalComplexExtents(T_Extents extents)
     {
-        extents[T_dim - 1u] = r2cComplexExtent(extents[T_dim - 1u]);
+        extents[T_Extents::dim() - 1u] = r2cComplexExtent(extents[T_Extents::dim() - 1u]);
         return extents;
     }
 
-    template<std::size_t T_dim>
-    [[nodiscard]] constexpr Extents<T_dim> c2rLogicalRealExtents(Extents<T_dim> extents)
+    template<alpaka::concepts::Vector T_Extents>
+    [[nodiscard]] constexpr T_Extents c2rLogicalRealExtents(T_Extents extents)
     {
-        extents[T_dim - 1u] = c2rLogicalRealExtent(extents[T_dim - 1u]);
+        extents[T_Extents::dim() - 1u] = c2rLogicalRealExtent(extents[T_Extents::dim() - 1u]);
         return extents;
     }
 
-    template<std::size_t T_dim>
-    [[nodiscard]] constexpr Extents<T_dim> c2rPhysicalRealStorageExtents(Extents<T_dim> extents)
+    template<alpaka::concepts::Vector T_Extents>
+    [[nodiscard]] constexpr T_Extents c2rPhysicalRealStorageExtents(T_Extents extents)
     {
-        extents[T_dim - 1u] = c2rPaddedRealExtent(extents[T_dim - 1u]);
+        extents[T_Extents::dim() - 1u] = c2rPaddedRealExtent(extents[T_Extents::dim() - 1u]);
         return extents;
     }
 
-    template<std::size_t T_dim>
-    [[nodiscard]] constexpr Extents<T_dim> r2cInPlaceRealStorageExtents(Extents<T_dim> extents)
+    template<alpaka::concepts::Vector T_Extents>
+    [[nodiscard]] constexpr T_Extents r2cInPlaceRealStorageExtents(T_Extents extents)
     {
-        extents[T_dim - 1u] = r2cPaddedRealExtent(extents[T_dim - 1u]);
+        extents[T_Extents::dim() - 1u] = r2cPaddedRealExtent(extents[T_Extents::dim() - 1u]);
         return extents;
     }
 
-    template<typename T_Real, std::size_t T_dim>
+    template<typename T_Real, alpaka::concepts::Vector T_Extents>
     requires RealScalar<T_Real>
     struct InPlaceRealStorage
     {
-        Extents<T_dim> logicalRealExtents{};
-        Extents<T_dim> physicalRealExtents{};
-        Extents<T_dim> logicalComplexExtents{};
-        std::size_t logicalRealElements = 0u;
-        std::size_t physicalRealElements = 0u;
-        std::size_t logicalComplexElements = 0u;
+        using extents_type = T_Extents;
+        using index_type = alpaka::trait::GetValueType_t<T_Extents>;
+
+        T_Extents logicalRealExtents{};
+        T_Extents physicalRealExtents{};
+        T_Extents logicalComplexExtents{};
+        index_type logicalRealElements = static_cast<index_type>(0u);
+        index_type physicalRealElements = static_cast<index_type>(0u);
+        index_type logicalComplexElements = static_cast<index_type>(0u);
     };
 
-    template<std::size_t T_dim>
+    template<alpaka::concepts::Vector T_Extents>
     struct FftBufferExtents
     {
-        Extents<T_dim> logicalRealExtents{};
-        Extents<T_dim> physicalRealExtents{};
-        Extents<T_dim> logicalComplexExtents{};
+        T_Extents logicalRealExtents{};
+        T_Extents physicalRealExtents{};
+        T_Extents logicalComplexExtents{};
     };
 
-    /**
-     * Describe the logical and physical extents for a real buffer that may be used in-place.
-     *
-     * The physical real extents include the vendor-required padding in the last dimension.
-     */
-    template<typename T_Real, std::size_t T_dim>
+    template<typename T_Real>
     requires RealScalar<T_Real>
-    [[nodiscard]] constexpr auto makeInPlaceRealStorage(Extents<T_dim> logicalRealExtents)
+    [[nodiscard]] constexpr auto makeInPlaceRealStorage(alpaka::concepts::VectorOrScalar auto const& logicalRealExtents)
     {
-        auto physicalRealExtents = r2cInPlaceRealStorageExtents(logicalRealExtents);
-        auto logicalComplexExtents = r2cLogicalComplexExtents(logicalRealExtents);
-        return InPlaceRealStorage<T_Real, T_dim>{
-            .logicalRealExtents = logicalRealExtents,
+        auto extents = [&]()
+        {
+            if constexpr(alpaka::concepts::Vector<std::remove_cvref_t<decltype(logicalRealExtents)>>)
+                return std::remove_cvref_t<decltype(logicalRealExtents)>{logicalRealExtents};
+            else
+                return filledVec<std::remove_cvref_t<decltype(logicalRealExtents)>, 1u>(logicalRealExtents);
+        }();
+        auto physicalRealExtents = r2cInPlaceRealStorageExtents(extents);
+        auto logicalComplexExtents = r2cLogicalComplexExtents(extents);
+        return InPlaceRealStorage<T_Real, decltype(extents)>{
+            .logicalRealExtents = extents,
             .physicalRealExtents = physicalRealExtents,
             .logicalComplexExtents = logicalComplexExtents,
-            .logicalRealElements = product(logicalRealExtents),
+            .logicalRealElements = product(extents),
             .physicalRealElements = product(physicalRealExtents),
             .logicalComplexElements = product(logicalComplexExtents)};
     }
 
-    /**
-     * Derive the real/complex extent views that refer to the same FFT allocation.
-     *
-     * For real-valued buffers this includes padded physical storage; for complex-valued buffers the input extents
-     * are treated as the logical packed spectrum shape.
-     */
-    template<typename T_Value, std::size_t T_dim>
-    [[nodiscard]] constexpr auto makeFftBufferExtents(Extents<T_dim> extents)
+    template<typename T_Value>
+    [[nodiscard]] constexpr auto makeFftBufferExtents(alpaka::concepts::VectorOrScalar auto const& extentsArg)
     {
+        auto extents = [&]()
+        {
+            if constexpr(alpaka::concepts::Vector<std::remove_cvref_t<decltype(extentsArg)>>)
+                return std::remove_cvref_t<decltype(extentsArg)>{extentsArg};
+            else
+                return filledVec<std::remove_cvref_t<decltype(extentsArg)>, 1u>(extentsArg);
+        }();
         if constexpr(RealScalar<T_Value>)
         {
             auto storage = makeInPlaceRealStorage<T_Value>(extents);
-            return FftBufferExtents<T_dim>{
+            return FftBufferExtents<decltype(extents)>{
                 .logicalRealExtents = storage.logicalRealExtents,
                 .physicalRealExtents = storage.physicalRealExtents,
                 .logicalComplexExtents = storage.logicalComplexExtents};
         }
         else
         {
-            return FftBufferExtents<T_dim>{
+            return FftBufferExtents<decltype(extents)>{
                 .logicalRealExtents = c2rLogicalRealExtents(extents),
                 .physicalRealExtents = c2rPhysicalRealStorageExtents(extents),
                 .logicalComplexExtents = extents};

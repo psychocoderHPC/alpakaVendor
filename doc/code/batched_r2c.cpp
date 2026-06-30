@@ -33,13 +33,13 @@ TEMPLATE_LIST_TEST_CASE("Batched R2C transform", "[doc][batched][r2c]", TestBack
 
     auto queue = device.makeQueue();
 
-    constexpr std::size_t n = 8u;
-    constexpr std::size_t batchSize = 4u;
-    constexpr std::size_t complexN = r2cComplexExtent(n);
+    constexpr uint32_t n = 8u;
+    constexpr uint32_t batchSize = 4u;
+    constexpr uint32_t complexN = r2cComplexExtent(n);
 
-    auto in = alpaka::fft::onHost::allocUnifiedForFFT<float>(device, alpaka::Vec<std::size_t, 1u>{batchSize * n});
+    auto in = alpaka::fft::onHost::allocUnifiedForFFT<float>(device, batchSize * n);
     auto out
-        = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, alpaka::Vec<std::size_t, 1u>{batchSize * complexN});
+        = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, batchSize * complexN);
 
     for(std::size_t b = 0; b < batchSize; ++b)
         for(std::size_t i = 0; i < n; ++i)
@@ -48,9 +48,9 @@ TEMPLATE_LIST_TEST_CASE("Batched R2C transform", "[doc][batched][r2c]", TestBack
             in.data()[b * n + i] = std::cos(2.0f * std::numbers::pi_v<float> * freq * float(i) / float(n));
         }
 
-    auto plan = alpaka::fft::onHost::PlanBuilder<float, 1>{}
+    auto plan = alpaka::fft::onHost::PlanBuilder<float>{}
                     .r2c()
-                    .extents({n})
+                    .extents(n)
                     .batch(batchSize)
                     .distances(n, complexN)
                     .build(queue);

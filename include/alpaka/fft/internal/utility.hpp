@@ -9,39 +9,58 @@
 
 namespace alpaka::fft::internal
 {
-    template<std::size_t T_dim>
-    using Vec = alpaka::Vec<std::size_t, T_dim>;
-
-    template<std::size_t T_dim>
-    [[nodiscard]] constexpr auto toVec(Extents<T_dim> const& extents)
+    template<alpaka::concepts::Vector T_TargetVec, alpaka::concepts::Vector T_SourceVec>
+    [[nodiscard]] constexpr auto castVec(T_SourceVec const& vec)
     {
-        Vec<T_dim> result{};
-        for(std::size_t i = 0; i < T_dim; ++i)
-            result[i] = extents[i];
+        static_assert(T_TargetVec::dim() == T_SourceVec::dim(), "Extent dimensions must match.");
+        using source_index_type = alpaka::trait::GetValueType_t<T_SourceVec>;
+        using target_index_type = alpaka::trait::GetValueType_t<T_TargetVec>;
+        static_assert(
+            isLosslessIntegralUpcastV<source_index_type, target_index_type>,
+            "Extent vector element types must match or upcast without precision loss.");
+
+        T_TargetVec result{};
+        for(uint32_t i = 0u; i < T_TargetVec::dim(); ++i)
+            result[i] = static_cast<target_index_type>(vec[i]);
         return result;
     }
 
-    template<std::size_t T_dim>
-    [[nodiscard]] constexpr auto toExtents(auto const& vec)
+    template<alpaka::concepts::Vector T_TargetVec>
+    [[nodiscard]] constexpr auto normalizeVectorOrScalar(alpaka::concepts::VectorOrScalar auto const& value)
     {
-        Extents<T_dim> result{};
-        for(std::size_t i = 0; i < T_dim; ++i)
-            result[i] = static_cast<std::size_t>(vec[i]);
-        return result;
+        if constexpr(alpaka::concepts::Vector<std::remove_cvref_t<decltype(value)>>)
+            return castVec<T_TargetVec>(value);
+        else
+        {
+            using source_index_type = std::remove_cvref_t<decltype(value)>;
+            using target_index_type = alpaka::trait::GetValueType_t<T_TargetVec>;
+            static_assert(
+                isLosslessIntegralUpcastV<source_index_type, target_index_type>,
+                "Extent scalar type must upcast to the extent vector element type without precision loss.");
+            return filledVec<target_index_type, T_TargetVec::dim()>(static_cast<target_index_type>(value));
+        }
     }
 
-    template<std::size_t T_dim>
-    [[nodiscard]] constexpr bool areZero(Strides<T_dim> const& strides)
+    [[nodiscard]] constexpr auto asExtentVec(alpaka::concepts::VectorOrScalar auto const& extents)
     {
-        for(auto v : strides)
-            if(v != 0u)
+        if constexpr(alpaka::concepts::Vector<std::remove_cvref_t<decltype(extents)>>)
+            return std::remove_cvref_t<decltype(extents)>{extents};
+        else
+            return filledVec<std::remove_cvref_t<decltype(extents)>, 1u>(extents);
+    }
+
+    template<alpaka::concepts::Vector T_Strides>
+    [[nodiscard]] constexpr bool areZero(T_Strides const& strides)
+    {
+        for(uint32_t i = 0u; i < T_Strides::dim(); ++i)
+            if(strides[i] != static_cast<alpaka::trait::GetValueType_t<T_Strides>>(0u))
                 return false;
         return true;
     }
 
-    template<std::size_t T_dim>
+    template<alpaka::concepts::Vector T_Extents>
     [[nodiscard]] constexpr auto expectedInputExtents(
-        Layout<T_dim> const& layout,
+        Layout<T_Extents> const& layout,
         Transform transform,
         Placement placement)
     {
@@ -52,9 +71,9 @@ namespace alpaka::fft::internal
         return layout.extents;
     }
 
-    template<std::size_t T_dim>
+    template<alpaka::concepts::Vector T_Extents>
     [[nodiscard]] constexpr auto expectedOutputExtents(
-        Layout<T_dim> const& layout,
+        Layout<T_Extents> const& layout,
         Transform transform,
         Placement placement)
     {
@@ -65,40 +84,40 @@ namespace alpaka::fft::internal
         return layout.extents;
     }
 
-    template<std::size_t T_dim>
-    [[nodiscard]] constexpr std::size_t expectedInDistance(
-        Layout<T_dim> const& layout,
+    template<alpaka::concepts::Vector T_Extents>
+    [[nodiscard]] constexpr auto expectedInDistance(
+        Layout<T_Extents> const& layout,
         Transform transform,
         Placement placement)
     {
-        if(layout.inDistance != 0u)
+        if(layout.inDistance != static_cast<alpaka::trait::GetValueType_t<T_Extents>>(0u))
             return layout.inDistance;
         return product(expectedInputExtents(layout, transform, placement));
     }
 
-    template<std::size_t T_dim>
-    [[nodiscard]] constexpr std::size_t expectedOutDistance(
-        Layout<T_dim> const& layout,
+    template<alpaka::concepts::Vector T_Extents>
+    [[nodiscard]] constexpr auto expectedOutDistance(
+        Layout<T_Extents> const& layout,
         Transform transform,
         Placement placement)
     {
-        if(layout.outDistance != 0u)
+        if(layout.outDistance != static_cast<alpaka::trait::GetValueType_t<T_Extents>>(0u))
             return layout.outDistance;
         return product(expectedOutputExtents(layout, transform, placement));
     }
 
-    template<std::size_t T_dim>
+    template<alpaka::concepts::Vector T_Extents>
     [[nodiscard]] constexpr auto expectedInStrides(
-        Layout<T_dim> const& layout,
+        Layout<T_Extents> const& layout,
         Transform transform,
         Placement placement)
     {
         return contiguousStrides(expectedInputExtents(layout, transform, placement));
     }
 
-    template<std::size_t T_dim>
+    template<alpaka::concepts::Vector T_Extents>
     [[nodiscard]] constexpr auto expectedOutStrides(
-        Layout<T_dim> const& layout,
+        Layout<T_Extents> const& layout,
         Transform transform,
         Placement placement)
     {
@@ -111,33 +130,30 @@ namespace alpaka::fft::internal
         return const_cast<std::remove_const_t<T>*>(ptr);
     }
 
-    template<typename T_View, std::size_t T_dim>
-    void validateViewExtents(T_View const& view, Extents<T_dim> const& expected, std::string const& what)
+    template<typename T_View, alpaka::concepts::Vector T_Extents>
+    void validateViewExtents(T_View const& view, T_Extents const& expected, std::string const& what)
     {
-        auto const actual = toExtents<T_dim>(view.getExtents());
+        auto const actual = castVec<T_Extents>(view.getExtents());
         if(actual != expected)
             throw std::invalid_argument(what + " extents do not match plan.");
     }
 
-    template<typename T_View, std::size_t T_dim>
+    template<typename T_View, alpaka::concepts::Vector T_Extents>
     void validateBatchedViewExtents(
         T_View const& view,
-        Extents<T_dim> const& perTransformExtents,
-        std::size_t batch,
+        T_Extents const& perTransformExtents,
+        alpaka::trait::GetValueType_t<T_Extents> batch,
         std::string const& what)
     {
-        auto const actual = toExtents<T_dim>(view.getExtents());
-        // For batched transforms, the first dimension should be batch * perTransformExtents[0]
-        // and other dimensions should match
-        if constexpr(T_dim > 1u)
+        auto const actual = castVec<T_Extents>(view.getExtents());
+        if constexpr(T_Extents::dim() > 1u)
         {
-            for(std::size_t i = 1u; i < T_dim; ++i)
+            for(uint32_t i = 1u; i < T_Extents::dim(); ++i)
             {
                 if(actual[i] != perTransformExtents[i])
                     throw std::invalid_argument(what + " extents do not match plan.");
             }
         }
-        // First dimension should be at least batch * perTransformExtents[0]
         if(actual[0] < batch * perTransformExtents[0])
             throw std::invalid_argument(what + " first dimension too small for batched transform.");
     }

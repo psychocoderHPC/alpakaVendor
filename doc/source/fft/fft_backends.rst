@@ -15,15 +15,15 @@ For a 2D M x N transform:
    // M rows, N columns
    // Index 0 (M): slow-moving (row)
    // Index 1 (N): fast-moving (column)
-   auto extents = alpaka::Vec<std::size_t, 2u>{M, N};
+   auto extents = alpaka::Vec<uint32_t, 2u>{M, N};
 
    // Linear index: row * N + col
    data[row * N + col] = value;
 
 This means:
 
-- For ``Extents<2>{M, N}``, the last dimension (N) is contiguous in memory
-- For ``Extents<3>{D, H, W}``, the last dimension (W) is contiguous in memory
+- For ``Extents<uint32_t, 2u>{M, N}``, the last dimension (N) is contiguous in memory
+- For ``Extents<uint32_t, 3u>{D, H, W}``, the last dimension (W) is contiguous in memory
 
 When copying your own data into alpaka buffers, ensure the fast-moving index corresponds to the contiguous dimension.
 
@@ -90,7 +90,7 @@ Invalid configurations throw ``std::invalid_argument``:
 .. code-block:: cpp
 
    try {
-       auto plan = PlanBuilder<float, 1>{}
+       auto plan = PlanBuilder<float, Extents<uint32_t, 1u>>{}
            .r2c()
            .extents({0u})  // Invalid: zero extent
            .build(queue);

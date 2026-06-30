@@ -14,27 +14,32 @@ TEMPLATE_LIST_TEST_CASE("fft helper extents", "[unit][helpers]", TestBackends)
 {
     auto device = getDeviceOrSkipTest(TestType::makeDict());
     using namespace alpaka::fft;
-    CHECK(r2cComplexExtent(8u) == 5u);
-    CHECK(r2cComplexExtent(9u) == 5u);
-    CHECK(r2cPaddedRealExtent(8u) == 10u);
-    CHECK(r2cPaddedRealExtent(10u) == 12u);
+    using Extents2D = Extents<uint16_t, 2u>;
+    using Strides2D = Strides<uint16_t, 2u>;
 
-    constexpr auto logical = Extents<2>{4u, 9u};
-    CHECK(r2cLogicalComplexExtents(logical) == Extents<2>{4u, 5u});
-    CHECK(r2cInPlaceRealStorageExtents(logical) == Extents<2>{4u, 10u});
-    CHECK(product(logical) == 36u);
-    CHECK(contiguousStrides(logical) == Strides<2>{9u, 1u});
+    CHECK(r2cComplexExtent(uint32_t{8u}) == uint32_t{5u});
+    CHECK(r2cComplexExtent(uint32_t{9u}) == uint32_t{5u});
+    CHECK(r2cPaddedRealExtent(uint32_t{8u}) == uint32_t{10u});
+    CHECK(r2cPaddedRealExtent(uint32_t{10u}) == uint32_t{12u});
+
+    constexpr auto logical = Extents2D{4u, 9u};
+    CHECK(r2cLogicalComplexExtents(logical) == Extents2D{4u, 5u});
+    CHECK(r2cInPlaceRealStorageExtents(logical) == Extents2D{4u, 10u});
+    CHECK(product(logical) == uint16_t{36u});
+    CHECK(contiguousStrides(logical) == Strides2D{9u, 1u});
 }
 
 TEMPLATE_LIST_TEST_CASE("in place real storage descriptor", "[unit][helpers]", TestBackends)
 {
     auto device = getDeviceOrSkipTest(TestType::makeDict());
     using namespace alpaka::fft;
-    auto storage = makeInPlaceRealStorage<float>(Extents<2>{4u, 8u});
-    CHECK(storage.logicalRealExtents == Extents<2>{4u, 8u});
-    CHECK(storage.physicalRealExtents == Extents<2>{4u, 10u});
-    CHECK(storage.logicalComplexExtents == Extents<2>{4u, 5u});
-    CHECK(storage.logicalRealElements == 32u);
-    CHECK(storage.physicalRealElements == 40u);
-    CHECK(storage.logicalComplexElements == 20u);
+    using Extents2D = Extents<uint32_t, 2u>;
+
+    auto storage = makeInPlaceRealStorage<float>(Extents2D{4u, 8u});
+    CHECK(storage.logicalRealExtents == Extents2D{4u, 8u});
+    CHECK(storage.physicalRealExtents == Extents2D{4u, 10u});
+    CHECK(storage.logicalComplexExtents == Extents2D{4u, 5u});
+    CHECK(storage.logicalRealElements == uint32_t{32u});
+    CHECK(storage.physicalRealElements == uint32_t{40u});
+    CHECK(storage.logicalComplexElements == uint32_t{20u});
 }

@@ -31,11 +31,11 @@ TEMPLATE_LIST_TEST_CASE("SharedBufferFFT example", "[doc][inplace][shared_buffer
     using namespace alpaka::fft;
 
     // Compute storage requirements for N=16
-    constexpr std::size_t n = 16u;
-    auto storage = makeInPlaceRealStorage<float>(Extents<1u>{n});
+    constexpr uint32_t n = 16u;
+    auto storage = makeInPlaceRealStorage<float>(n);
 
     // Allocate physical storage
-    auto realBuffer = alpaka::fft::onHost::allocUnifiedForFFT<float>(device, alpaka::Vec<std::size_t, 1u>{n});
+    auto realBuffer = alpaka::fft::onHost::allocUnifiedForFFT<float>(device, n);
 
     // Verify buffer properties
     CHECK(realBuffer);

@@ -23,7 +23,7 @@ For a 2D M x N transform:
    // M rows, N columns
    // Index 0 (M): slow-moving (row)
    // Index 1 (N): fast-moving (column)
-   auto extents = alpaka::Vec<std::size_t, 2u>{M, N};
+   auto extents = alpaka::Vec<uint32_t, 2u>{M, N};
 
    // Linear index: row * N + col
    data[row * N + col] = value;
@@ -35,7 +35,7 @@ For a 3D D x H x W transform:
    // Index 0 (D): slowest-moving (depth)
    // Index 1 (H): middle (height)
    // Index 2 (W): fast-moving (width)
-   auto extents = alpaka::Vec<std::size_t, 3u>{D, H, W};
+   auto extents = alpaka::Vec<uint32_t, 3u>{D, H, W};
 
    // Linear index: (depth * H + row) * W + col
    data[(depth * H + row) * W + col] = value;

@@ -29,19 +29,19 @@ TEMPLATE_LIST_TEST_CASE("Quickstart: Basic C2C transform", "[doc][quickstart][c2
     auto device = devSelector.makeDevice(0);
 
     using Complex = alpaka::math::Complex<float>;
-    constexpr std::size_t n = 8u;
+    constexpr uint32_t n = 8u;
 
     auto queue = device.makeQueue();
     //! [quickstart-c2c-backends]
 
     //! [quickstart-c2c-core]
-    auto in = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, alpaka::Vec<std::size_t, 1u>{n});
-    auto out = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, alpaka::Vec<std::size_t, 1u>{n});
+    auto in = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, n);
+    auto out = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, n);
 
     for(std::size_t i = 0; i < n; ++i)
         in.data()[i] = (i == 0u) ? Complex{1.0f, 0.0f} : Complex{0.0f, 0.0f};
 
-    auto plan = alpaka::fft::onHost::PlanBuilder<Complex, 1>{}.c2c().extents({n}).outOfPlace().build(queue);
+    auto plan = alpaka::fft::onHost::PlanBuilder<Complex>{}.c2c().extents(n).outOfPlace().build(queue);
 
     alpaka::fft::onHost::executeForward(queue, plan, in, out);
     alpaka::fft::onHost::executeBackward(queue, plan, out, in);

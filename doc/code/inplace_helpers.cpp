@@ -39,15 +39,16 @@ TEMPLATE_LIST_TEST_CASE("Padding helpers", "[doc][inplace][helpers]", TestBacken
     CHECK(r2cPaddedRealExtent(10u) == 12u);
 
     // 2D examples
-    constexpr auto extents2d = Extents<2>{4u, 9u};
+    using Extents2D = Extents<uint32_t, 2u>;
+    constexpr auto extents2d = Extents2D{4u, 9u};
     auto complexExtents2d = r2cLogicalComplexExtents(extents2d);
     auto paddedExtents2d = r2cInPlaceRealStorageExtents(extents2d);
 
-    CHECK((complexExtents2d == Extents<2>{4u, 5u}));
-    CHECK((paddedExtents2d == Extents<2>{4u, 10u}));
+    CHECK((complexExtents2d == Extents2D{4u, 5u}));
+    CHECK((paddedExtents2d == Extents2D{4u, 10u}));
 
     // InPlaceRealStorage
-    auto storage = makeInPlaceRealStorage<float>(Extents<2>{1024u, 1024u});
+    auto storage = makeInPlaceRealStorage<float>(Extents2D{1024u, 1024u});
     CHECK(storage.logicalRealElements == 1024u * 1024u);
     CHECK(storage.physicalRealElements == 1024u * 1026u);
     CHECK(storage.logicalComplexElements == 1024u * 513u);

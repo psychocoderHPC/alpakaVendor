@@ -34,8 +34,8 @@ namespace alpaka::fft::internal
         static constexpr unsigned flags = FFTW_ESTIMATE;
     };
 
-    template<typename T_Value, std::size_t T_dim>
-    struct PlanImpl<alpaka::api::Host, T_Value, T_dim>
+    template<typename T_Value, alpaka::concepts::Vector T_Extents>
+    struct PlanImpl<alpaka::api::Host, T_Value, T_Extents>
     {
         using value_type = T_Value;
         using real_type = Real_t<T_Value>;
@@ -43,11 +43,14 @@ namespace alpaka::fft::internal
         using plan_type = typename traits::plan_type;
 
         Transform m_transform;
-        Layout<T_dim> m_layout;
+        static constexpr uint32_t T_dim = T_Extents::dim();
+        using index_type = alpaka::trait::GetValueType_t<T_Extents>;
+
+        Layout<T_Extents> m_layout;
         PlanOptions m_options;
         plan_type m_plan = nullptr;
 
-        PlanImpl(auto&, Transform transform, Layout<T_dim> layout, PlanOptions options)
+        PlanImpl(auto&, Transform transform, Layout<T_Extents> layout, PlanOptions options)
             : m_transform{transform}
             , m_layout{layout}
             , m_options{options}
@@ -108,8 +111,8 @@ namespace alpaka::fft::internal
         {
             validate(T_dim >= 1u && T_dim <= 3u, "FFT only supports dimensions 1..3.");
             validate(m_layout.batch >= 1u, "FFT batch must be >= 1.");
-            for(auto e : m_layout.extents)
-                validate(e > 0u, "FFT extents must be non-zero.");
+            for(uint32_t i = 0u; i < T_dim; ++i)
+                validate(m_layout.extents[i] > static_cast<index_type>(0u), "FFT extents must be non-zero.");
             validate(m_options.normalization == Normalization::none, "Only Normalization::none is supported.");
             if(m_options.workspacePolicy == WorkspacePolicy::userProvided)
                 throw std::invalid_argument("FFTW backend does not support user-provided workspace in v1.");
@@ -131,7 +134,7 @@ namespace alpaka::fft::internal
         [[nodiscard]] auto n() const
         {
             std::array<int, T_dim> nVals{};
-            for(std::size_t i = 0; i < T_dim; ++i)
+            for(uint32_t i = 0u; i < T_dim; ++i)
                 nVals[i] = static_cast<int>(m_layout.extents[i]);
             return nVals;
         }
@@ -140,7 +143,7 @@ namespace alpaka::fft::internal
         {
             auto ext = expectedInputExtents(m_layout, m_transform, m_options.placement);
             std::array<int, T_dim> vals{};
-            for(std::size_t i = 0; i < T_dim; ++i)
+            for(uint32_t i = 0u; i < T_dim; ++i)
                 vals[i] = static_cast<int>(ext[i]);
             return vals;
         }
@@ -149,7 +152,7 @@ namespace alpaka::fft::internal
         {
             auto ext = expectedOutputExtents(m_layout, m_transform, m_options.placement);
             std::array<int, T_dim> vals{};
-            for(std::size_t i = 0; i < T_dim; ++i)
+            for(uint32_t i = 0u; i < T_dim; ++i)
                 vals[i] = static_cast<int>(ext[i]);
             return vals;
         }
@@ -294,17 +297,17 @@ namespace alpaka::fft::internal
             auto transform = m_transform;
 
             std::array<int, T_dim> nVals{};
-            for(std::size_t i = 0; i < T_dim; ++i)
+            for(uint32_t i = 0u; i < T_dim; ++i)
                 nVals[i] = static_cast<int>(layout.extents[i]);
 
             auto inEmbedExt = expectedInputExtents(layout, transform, options.placement);
             std::array<int, T_dim> inEmbedVals{};
-            for(std::size_t i = 0; i < T_dim; ++i)
+            for(uint32_t i = 0u; i < T_dim; ++i)
                 inEmbedVals[i] = static_cast<int>(inEmbedExt[i]);
 
             auto outEmbedExt = expectedOutputExtents(layout, transform, options.placement);
             std::array<int, T_dim> outEmbedVals{};
-            for(std::size_t i = 0; i < T_dim; ++i)
+            for(uint32_t i = 0u; i < T_dim; ++i)
                 outEmbedVals[i] = static_cast<int>(outEmbedExt[i]);
 
             auto inDistance = static_cast<int>(expectedInDistance(layout, transform, options.placement));

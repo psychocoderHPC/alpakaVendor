@@ -16,11 +16,11 @@ Common types
        enum class Placement { inPlace, outOfPlace };
        enum class WorkspacePolicy { backendManaged, userProvided };
 
-       template<std::size_t T_dim>
-       using Extents = std::array<std::size_t, T_dim>;
+       template<typename T_Index, uint32_t T_dim>
+       using Extents = alpaka::Vec<T_Index, T_dim>;
 
-       template<std::size_t T_dim>
-       using Strides = std::array<std::size_t, T_dim>;
+       template<typename T_Index, uint32_t T_dim>
+       using Strides = alpaka::Vec<T_Index, T_dim>;
    }
 
 Transform types
@@ -49,15 +49,15 @@ Layout
 
    namespace alpaka::fft
    {
-       template<std::size_t T_dim>
+       template<alpaka::concepts::Vector T_Extents>
        struct Layout
        {
-           Extents<T_dim> extents{};      // Logical FFT extents
-           Strides<T_dim> inStrides{};    // Element strides (not byte strides)
-           Strides<T_dim> outStrides{};   // Element strides (not byte strides)
-           std::size_t batch = 1u;         // Number of transforms in batch
-           std::size_t inDistance = 0u;    // Distance between batch elements (input)
-           std::size_t outDistance = 0u;   // Distance between batch elements (output)
+           T_Extents extents{};
+           T_Extents inStrides{};
+           T_Extents outStrides{};
+           alpaka::trait::GetValueType_t<T_Extents> batch = 1u;
+           alpaka::trait::GetValueType_t<T_Extents> inDistance = 0u;
+           alpaka::trait::GetValueType_t<T_Extents> outDistance = 0u;
        };
    }
 
@@ -111,19 +111,19 @@ Padding helpers
 
        // Logical complex extents for R2C transform
        template<std::size_t T_dim>
-       [[nodiscard]] constexpr Extents<T_dim> r2cLogicalComplexExtents(Extents<T_dim> realExtents);
+       [[nodiscard]] constexpr T_Extents r2cLogicalComplexExtents(T_Extents realExtents);
 
        // Physical real storage extents for in-place R2C
        template<std::size_t T_dim>
-       [[nodiscard]] constexpr Extents<T_dim> r2cInPlaceRealStorageExtents(Extents<T_dim> realExtents);
+       [[nodiscard]] constexpr T_Extents r2cInPlaceRealStorageExtents(T_Extents realExtents);
 
        // Product of all extents
        template<std::size_t T_dim>
-       [[nodiscard]] constexpr std::size_t product(Extents<T_dim> const& extents);
+       [[nodiscard]] constexpr std::size_t product(T_Extents const& extents);
 
        // Contiguous strides for given extents
        template<std::size_t T_dim>
-       [[nodiscard]] constexpr Strides<T_dim> contiguousStrides(Extents<T_dim> const& extents);
+       [[nodiscard]] constexpr T_Extents contiguousStrides(T_Extents const& extents);
    }
 
 In-place real storage
@@ -136,16 +136,16 @@ In-place real storage
        template<typename T_Real, std::size_t T_dim>
        struct InPlaceRealStorage
        {
-           Extents<T_dim> logicalRealExtents{};
-           Extents<T_dim> physicalRealExtents{};
-           Extents<T_dim> logicalComplexExtents{};
+           T_Extents logicalRealExtents{};
+           T_Extents physicalRealExtents{};
+           T_Extents logicalComplexExtents{};
            std::size_t logicalRealElements = 0u;
            std::size_t physicalRealElements = 0u;
            std::size_t logicalComplexElements = 0u;
        };
 
        template<typename T_Real, std::size_t T_dim>
-       [[nodiscard]] constexpr auto makeInPlaceRealStorage(Extents<T_dim> logicalRealExtents);
+       [[nodiscard]] constexpr auto makeInPlaceRealStorage(T_Extents logicalRealExtents);
    }
 
 PlanBuilder
@@ -155,17 +155,17 @@ PlanBuilder
 
    namespace alpaka::fft::onHost
    {
-       template<typename T_Value, std::size_t T_dim>
+       template<typename T_Value, alpaka::concepts::Vector T_Extents>
        class PlanBuilder
        {
        public:
            PlanBuilder& c2c();
            PlanBuilder& r2c();
            PlanBuilder& c2r();
-           PlanBuilder& extents(Extents<T_dim> value);
-           PlanBuilder& batch(std::size_t value);
-           PlanBuilder& strides(Strides<T_dim> in, Strides<T_dim> out);
-           PlanBuilder& distances(std::size_t inDistance, std::size_t outDistance);
+           PlanBuilder& extents(alpaka::concepts::VectorOrScalar auto const& value);
+           PlanBuilder& batch(alpaka::trait::GetValueType_t<T_Extents> value);
+           PlanBuilder& strides(T_Extents in, T_Extents out);
+           PlanBuilder& distances(alpaka::trait::GetValueType_t<T_Extents> inDistance, alpaka::trait::GetValueType_t<T_Extents> outDistance);
            PlanBuilder& inPlace();
            PlanBuilder& outOfPlace();
            PlanBuilder& backendManagedWorkspace();

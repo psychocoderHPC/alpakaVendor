@@ -10,7 +10,7 @@ Set the batch count and distance between batch elements:
 
 .. code-block:: cpp
 
-   auto plan = PlanBuilder<std::complex<float>, 1>{}
+   auto plan = PlanBuilder<std::complex<float>, Extents<uint32_t, 1u>>{}
        .c2c()
        .extents({N})
        .batch(batchSize)

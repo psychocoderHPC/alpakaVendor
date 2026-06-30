@@ -29,21 +29,21 @@ TEMPLATE_LIST_TEST_CASE("Quickstart: Basic R2C transform", "[doc][quickstart][r2
     auto device = devSelector.makeDevice(0);
 
     using namespace alpaka::fft;
-    constexpr std::size_t n = 8u;
+    constexpr uint32_t n = 8u;
 
     auto queue = device.makeQueue();
     //! [quickstart-r2c-backends]
 
     //! [quickstart-r2c-core]
-    auto in = alpaka::fft::onHost::allocUnifiedForFFT<float>(device, alpaka::Vec<std::size_t, 1u>{n});
+    auto in = alpaka::fft::onHost::allocUnifiedForFFT<float>(device, n);
     auto out = alpaka::fft::onHost::allocUnifiedForFFT<alpaka::math::Complex<float>>(
         device,
-        alpaka::Vec<std::size_t, 1u>{alpaka::fft::r2cComplexExtent(n)});
+        alpaka::fft::r2cComplexExtent(n));
 
     for(std::size_t i = 0; i < n; ++i)
         in.data()[i] = std::cos(2.0f * std::numbers::pi_v<float> * float(i) / float(n));
 
-    auto plan = alpaka::fft::onHost::PlanBuilder<float, 1>{}.r2c().extents({n}).outOfPlace().build(queue);
+    auto plan = alpaka::fft::onHost::PlanBuilder<float>{}.r2c().extents(n).outOfPlace().build(queue);
 
     alpaka::fft::onHost::executeForward(queue, plan, in, out);
     alpaka::onHost::wait(queue);

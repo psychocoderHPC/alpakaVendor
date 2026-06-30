@@ -11,10 +11,10 @@
 
 namespace alpaka::fft::internal
 {
-    template<typename T_Api, typename T_Value, std::size_t T_dim>
+    template<typename T_Api, typename T_Value, alpaka::concepts::Vector T_Extents>
     struct PlanImpl
     {
-        PlanImpl(auto&, Transform, Layout<T_dim>, PlanOptions)
+        PlanImpl(auto&, Transform, Layout<T_Extents>, PlanOptions)
         {
             static_assert(!sizeof(T_Api), "Unsupported alpaka::fft FFT backend for this API.");
         }

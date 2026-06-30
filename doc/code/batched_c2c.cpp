@@ -33,18 +33,18 @@ TEMPLATE_LIST_TEST_CASE("Batched C2C transform", "[doc][batched][c2c]", TestBack
 
     auto queue = device.makeQueue();
 
-    constexpr std::size_t n = 8u;
-    constexpr std::size_t batchSize = 4u;
+    constexpr uint32_t n = 8u;
+    constexpr uint32_t batchSize = 4u;
 
-    auto in = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, alpaka::Vec<std::size_t, 1u>{batchSize * n});
-    auto out = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, alpaka::Vec<std::size_t, 1u>{batchSize * n});
+    auto in = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, batchSize * n);
+    auto out = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, batchSize * n);
 
     for(std::size_t b = 0; b < batchSize; ++b)
         for(std::size_t i = 0; i < n; ++i)
             in.data()[b * n + i] = (i == 0u) ? Complex{1.0f, 0.0f} : Complex{0.0f, 0.0f};
 
     auto plan
-        = alpaka::fft::onHost::PlanBuilder<Complex, 1>{}.c2c().extents({n}).batch(batchSize).distances(n, n).build(
+        = alpaka::fft::onHost::PlanBuilder<Complex>{}.c2c().extents(n).batch(batchSize).distances(n, n).build(
             queue);
 
     alpaka::fft::onHost::executeForward(queue, plan, in, out);

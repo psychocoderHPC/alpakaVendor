@@ -36,20 +36,23 @@ namespace alpaka::fft::internal
         static constexpr cufftType c2r = CUFFT_Z2D;
     };
 
-    template<typename T_Value, std::size_t T_dim>
-    struct PlanImpl<alpaka::api::Cuda, T_Value, T_dim>
+    template<typename T_Value, alpaka::concepts::Vector T_Extents>
+    struct PlanImpl<alpaka::api::Cuda, T_Value, T_Extents>
     {
         using value_type = T_Value;
         using real_type = Real_t<T_Value>;
         using traits = CufftTraits<real_type>;
 
         Transform m_transform;
-        Layout<T_dim> m_layout;
+        static constexpr uint32_t T_dim = T_Extents::dim();
+        using index_type = alpaka::trait::GetValueType_t<T_Extents>;
+
+        Layout<T_Extents> m_layout;
         PlanOptions m_options;
         cufftHandle m_handle = 0;
         std::size_t m_workspaceBytes = 0u;
 
-        PlanImpl(auto& queue, Transform transform, Layout<T_dim> layout, PlanOptions options)
+        PlanImpl(auto& queue, Transform transform, Layout<T_Extents> layout, PlanOptions options)
             : m_transform{transform}
             , m_layout{layout}
             , m_options{options}
@@ -104,8 +107,8 @@ namespace alpaka::fft::internal
         {
             validate(T_dim >= 1u && T_dim <= 3u, "FFT only supports dimensions 1..3.");
             validate(m_layout.batch >= 1u, "FFT batch must be >= 1.");
-            for(auto e : m_layout.extents)
-                validate(e > 0u, "FFT extents must be non-zero.");
+            for(uint32_t i = 0u; i < T_dim; ++i)
+                validate(m_layout.extents[i] > static_cast<index_type>(0u), "FFT extents must be non-zero.");
             validate(m_options.normalization == Normalization::none, "Only Normalization::none is supported.");
             if constexpr(ComplexScalar<T_Value>)
                 validate(m_transform == Transform::c2c, "Complex plan value type only supports C2C.");
@@ -124,7 +127,7 @@ namespace alpaka::fft::internal
         [[nodiscard]] auto dims() const
         {
             std::array<long long, T_dim> result{};
-            for(std::size_t i = 0; i < T_dim; ++i)
+            for(uint32_t i = 0u; i < T_dim; ++i)
                 result[i] = static_cast<long long>(m_layout.extents[i]);
             return result;
         }
@@ -133,7 +136,7 @@ namespace alpaka::fft::internal
         {
             auto ext = expectedInputExtents(m_layout, m_transform, m_options.placement);
             std::array<long long, T_dim> result{};
-            for(std::size_t i = 0; i < T_dim; ++i)
+            for(uint32_t i = 0u; i < T_dim; ++i)
                 result[i] = static_cast<long long>(ext[i]);
             return result;
         }
@@ -142,7 +145,7 @@ namespace alpaka::fft::internal
         {
             auto ext = expectedOutputExtents(m_layout, m_transform, m_options.placement);
             std::array<long long, T_dim> result{};
-            for(std::size_t i = 0; i < T_dim; ++i)
+            for(uint32_t i = 0u; i < T_dim; ++i)
                 result[i] = static_cast<long long>(ext[i]);
             return result;
         }
