@@ -171,6 +171,11 @@ namespace alpaka::fft
         return strides;
     }
 
+    /**
+     * Return the packed complex extent for the last dimension of an R2C transform.
+     *
+     * Only the non-redundant Hermitian half-spectrum is stored.
+     */
     template<std::integral T_Index>
     [[nodiscard]] constexpr T_Index r2cComplexExtent(T_Index realExtent)
     {
@@ -185,6 +190,11 @@ namespace alpaka::fft
         return extents;
     }
 
+    /**
+     * Recover the logical real extent from a packed C2R spectrum extent.
+     *
+     * This describes the transform domain size, not the padded in-place storage size.
+     */
     template<std::integral T_Index>
     [[nodiscard]] constexpr T_Index c2rLogicalRealExtent(T_Index complexExtent)
     {
@@ -201,6 +211,7 @@ namespace alpaka::fft
         return extents;
     }
 
+    /** Return the padded real-storage extent required for in-place C2R/R2C layouts. */
     template<std::integral T_Index>
     [[nodiscard]] constexpr T_Index c2rPaddedRealExtent(T_Index complexExtent)
     {
@@ -215,6 +226,7 @@ namespace alpaka::fft
         return extents;
     }
 
+    /** Return the padded real-storage extent required for in-place R2C layouts. */
     template<std::integral T_Index>
     [[nodiscard]] constexpr T_Index r2cPaddedRealExtent(T_Index realExtent)
     {
@@ -229,6 +241,11 @@ namespace alpaka::fft
         return extents;
     }
 
+    /**
+     * Describe the logical and physical extents for a real buffer that may be used in-place.
+     *
+     * The physical real extents include the vendor-required padding in the last dimension.
+     */
     template<typename T_Real, alpaka::concepts::Vector T_Extents>
     requires RealScalar<T_Real>
     struct InPlaceRealStorage
@@ -275,6 +292,12 @@ namespace alpaka::fft
             .logicalComplexElements = product(logicalComplexExtents)};
     }
 
+    /**
+     * Derive the real/complex extent views that refer to the same FFT allocation.
+     *
+     * For real-valued buffers this includes padded physical storage; for complex-valued buffers the input extents
+     * are treated as the logical packed spectrum shape.
+     */
     template<typename T_Value>
     [[nodiscard]] constexpr auto makeFftBufferExtents(alpaka::concepts::VectorOrScalar auto const& extentsArg)
     {
