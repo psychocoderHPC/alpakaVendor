@@ -41,8 +41,8 @@ TEMPLATE_LIST_TEST_CASE("Tutorial: Complete FFT example", "[doc][tutorial][full]
 
     //! [tutorial-c2c]
     constexpr uint32_t n1d = 16u;
-    auto in1d = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, n1d);
-    auto out1d = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, n1d);
+    auto in1d = alpaka::fft::onHost::allocUnified<Complex>(device, n1d);
+    auto out1d = alpaka::fft::onHost::allocUnified<Complex>(device, n1d);
 
     // Initialize: sum of two sinusoids
     for(std::size_t i = 0; i < n1d; ++i)
@@ -78,8 +78,8 @@ TEMPLATE_LIST_TEST_CASE("Tutorial: Complete FFT example", "[doc][tutorial][full]
     //! [tutorial-2d]
     constexpr uint32_t nx = 4u;
     constexpr uint32_t ny = 4u;
-    auto in2d = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, Extents2D{nx, ny});
-    auto out2d = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, Extents2D{nx, ny});
+    auto in2d = alpaka::fft::onHost::allocUnified<Complex>(device, Extents2D{nx, ny});
+    auto out2d = alpaka::fft::onHost::allocUnified<Complex>(device, Extents2D{nx, ny});
 
     // Initialize: 2D Gaussian
     for(std::size_t ix = 0; ix < nx; ++ix)
@@ -117,7 +117,7 @@ TEMPLATE_LIST_TEST_CASE("Tutorial: Complete FFT example", "[doc][tutorial][full]
     //! [tutorial-inplace]
     constexpr uint32_t n = 8u;
     auto storage = alpaka::fft::makeInPlaceRealStorage<float>(n);
-    auto buffer = alpaka::fft::onHost::allocUnifiedForFFT<float>(device, n);
+    auto buffer = alpaka::fft::onHost::allocUnified<float>(device, n);
 
     // Initialize: square wave
     for(std::size_t i = 0; i < n; ++i)

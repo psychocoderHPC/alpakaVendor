@@ -35,8 +35,8 @@ TEMPLATE_LIST_TEST_CASE("Quickstart: Basic C2C transform", "[doc][quickstart][c2
     //! [quickstart-c2c-backends]
 
     //! [quickstart-c2c-core]
-    auto in = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, n);
-    auto out = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, n);
+    auto in = alpaka::fft::onHost::allocUnified<Complex>(device, n);
+    auto out = alpaka::fft::onHost::allocUnified<Complex>(device, n);
 
     for(std::size_t i = 0; i < n; ++i)
         in.data()[i] = (i == 0u) ? Complex{1.0f, 0.0f} : Complex{0.0f, 0.0f};

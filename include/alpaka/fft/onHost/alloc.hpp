@@ -54,17 +54,19 @@ namespace alpaka::fft::onHost::internal
 
 namespace alpaka::fft::onHost
 {
-    /**
-     * Allocate an FFT-managed buffer.
+    /** Allocate an FFT-managed buffer.
      *
      * Real-valued allocations reserve padded physical storage so the returned buffer can be reinterpreted between
      * real and complex FFT views. Complex-valued allocations keep their logical complex extents and can be
      * reinterpreted back to their matching real FFT view.
      *
+     * This allocation is required for in-place FFT transforms where the same buffer is used for both input and
+     * output with automatic padding management.
+     *
      * For manual, non-FFT-managed storage use `alpaka::onHost::alloc()` directly.
      */
     template<typename T_Type>
-    [[nodiscard]] auto allocForFFT(
+    [[nodiscard]] auto alloc(
         alpaka::onHost::internal::concepts::Device auto const& device,
         alpaka::concepts::VectorOrScalar auto const& extents)
     {
@@ -74,17 +76,19 @@ namespace alpaka::fft::onHost
         return internal::wrapBuffer<T_Type>(alpaka::onHost::alloc<T_Type>(device, fftExtents), storage);
     }
 
-    /**
-     * Allocate a unified FFT-managed buffer.
+    /** Allocate a unified FFT-managed buffer.
      *
      * Real-valued allocations reserve padded physical storage so the returned buffer can be reinterpreted between
      * real and complex FFT views. Complex-valued allocations keep their logical complex extents and can be
      * reinterpreted back to their matching real FFT view.
      *
+     * This allocation is required for in-place FFT transforms where the same buffer is used for both input and
+     * output with automatic padding management.
+     *
      * For manual, non-FFT-managed storage use `alpaka::onHost::allocUnified()` directly.
      */
     template<typename T_Type>
-    [[nodiscard]] auto allocUnifiedForFFT(
+    [[nodiscard]] auto allocUnified(
         alpaka::onHost::internal::concepts::Device auto const& device,
         alpaka::concepts::VectorOrScalar auto const& extents)
     {
@@ -94,14 +98,16 @@ namespace alpaka::fft::onHost
         return internal::wrapBuffer<T_Type>(alpaka::onHost::allocUnified<T_Type>(device, fftExtents), storage);
     }
 
-    /**
-     * Allocate a mapped FFT-managed buffer.
+    /** Allocate a mapped FFT-managed buffer.
      *
      * The returned buffer stores FFT reinterpretation metadata and may be converted between matching real and complex
      * FFT views.
+     *
+     * This allocation is required for in-place FFT transforms where the same buffer is used for both input and
+     * output with automatic padding management.
      */
     template<typename T_Type>
-    [[nodiscard]] auto allocMappedForFFT(
+    [[nodiscard]] auto allocMapped(
         alpaka::onHost::internal::concepts::Device auto const& device,
         alpaka::concepts::VectorOrScalar auto const& extents)
     {
@@ -111,11 +117,13 @@ namespace alpaka::fft::onHost
         return internal::wrapBuffer<T_Type>(alpaka::onHost::allocMapped<T_Type>(device, fftExtents), storage);
     }
 
-    /**
-     * Allocate a deferred FFT-managed buffer from a queue.
+    /** Allocate a deferred FFT-managed buffer from a queue.
+     *
+     * This allocation is required for in-place FFT transforms where the same buffer is used for both input and
+     * output with automatic padding management.
      */
     template<typename T_Type, typename T_Device, alpaka::concepts::QueueKind T_QueueKind>
-    [[nodiscard]] auto allocDeferredForFFT(
+    [[nodiscard]] auto allocDeferred(
         alpaka::onHost::Queue<T_Device, T_QueueKind> const& queue,
         alpaka::concepts::VectorOrScalar auto const& extents)
     {
@@ -123,13 +131,5 @@ namespace alpaka::fft::onHost
         auto storage = makeFftBufferExtents<T_Type>(logicalExtents);
         auto fftExtents = internal::fftAllocationExtents<T_Type>(logicalExtents);
         return internal::wrapBuffer<T_Type>(alpaka::onHost::allocDeferred<T_Type>(queue, fftExtents), storage);
-    }
-
-    template<typename T_Type, typename T_Device, alpaka::concepts::QueueKind T_QueueKind>
-    [[nodiscard]] auto allocDeferedForFFT(
-        alpaka::onHost::Queue<T_Device, T_QueueKind> const& queue,
-        alpaka::concepts::VectorOrScalar auto const& extents)
-    {
-        return allocDeferredForFFT<T_Type>(queue, extents);
     }
 } // namespace alpaka::fft::onHost

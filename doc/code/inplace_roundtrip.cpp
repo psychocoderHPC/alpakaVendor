@@ -36,7 +36,7 @@ TEMPLATE_LIST_TEST_CASE("In-place R2C/C2R roundtrip", "[doc][inplace][roundtrip]
 
     auto storage = makeInPlaceRealStorage<float>(n);
 
-    auto buffer = alpaka::fft::onHost::allocUnifiedForFFT<float>(device, n);
+    auto buffer = alpaka::fft::onHost::allocUnified<float>(device, n);
 
     for(std::size_t i = 0; i < n; ++i)
         buffer.data()[i] = std::sin(2.0f * std::numbers::pi_v<float> * float(i) / float(n));

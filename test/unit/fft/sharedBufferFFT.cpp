@@ -35,7 +35,7 @@ TEMPLATE_LIST_TEST_CASE(
     auto deviceExec = getDeviceExecutorOrSkipTest(TestType::makeDict());
     auto device = getDevice(deviceExec);
 
-    auto buffer = alpaka::fft::onHost::allocForFFT<float>(device, 8u);
+    auto buffer = alpaka::fft::onHost::alloc<float>(device, 8u);
     using Buffer = std::decay_t<decltype(buffer)>;
     using ConstBuffer = alpaka::internal::CopyConstructableDataSource<Buffer>::InnerConst;
 
@@ -68,7 +68,7 @@ TEMPLATE_LIST_TEST_CASE(
     using namespace alpaka::fft;
 
     auto storage = makeInPlaceRealStorage<float>(8u);
-    auto realBuffer = alpaka::fft::onHost::allocForFFT<float>(device, 8u);
+    auto realBuffer = alpaka::fft::onHost::alloc<float>(device, 8u);
 
     CHECK(realBuffer.byteCapacity() == storage.physicalRealElements * sizeof(float));
     CHECK(realBuffer.getExtents() == storage.physicalRealExtents);
@@ -93,12 +93,12 @@ TEMPLATE_LIST_TEST_CASE(
     auto deviceExec = getDeviceExecutorOrSkipTest(TestType::makeDict());
     auto device = getDevice(deviceExec);
 
-    auto realBuffer = alpaka::fft::onHost::allocForFFT<float>(device, 8u);
+    auto realBuffer = alpaka::fft::onHost::alloc<float>(device, 8u);
     auto sameReal = realBuffer.asReal();
     CHECK(sameReal.data() == realBuffer.data());
     CHECK(sameReal.getUseCount() == realBuffer.getUseCount());
 
-    auto complexBuffer = alpaka::fft::onHost::allocForFFT<alpaka::math::Complex<float>>(device, 5u);
+    auto complexBuffer = alpaka::fft::onHost::alloc<alpaka::math::Complex<float>>(device, 5u);
     auto sameComplex = complexBuffer.asComplex();
     CHECK(sameComplex.data() == complexBuffer.data());
     CHECK(sameComplex.getUseCount() == complexBuffer.getUseCount());
@@ -117,10 +117,10 @@ TEMPLATE_LIST_TEST_CASE(
     auto queue = device.makeQueue();
     auto extents = Extents<uint16_t, 1u>{16u};
 
-    auto plain = alpaka::fft::onHost::allocForFFT<float>(device, extents);
-    auto unified = alpaka::fft::onHost::allocUnifiedForFFT<float>(device, extents);
-    auto mapped = alpaka::fft::onHost::allocMappedForFFT<float>(device, extents);
-    auto deferred = alpaka::fft::onHost::allocDeferredForFFT<float>(queue, extents);
+    auto plain = alpaka::fft::onHost::alloc<float>(device, extents);
+    auto unified = alpaka::fft::onHost::allocUnified<float>(device, extents);
+    auto mapped = alpaka::fft::onHost::allocMapped<float>(device, extents);
+    auto deferred = alpaka::fft::onHost::allocDeferred<float>(queue, extents);
 
     CHECK(bool(plain));
     CHECK(bool(unified));

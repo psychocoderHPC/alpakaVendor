@@ -29,9 +29,9 @@ TEMPLATE_LIST_TEST_CASE("FFT C2C roundtrip 1D", "[integr][fft][c2c]", TestBacken
         constexpr uint32_t n = 8u;
         auto extents = n;
 
-        auto in = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, extents);
-        auto tmp = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, extents);
-        auto out = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, extents);
+        auto in = alpaka::fft::onHost::allocUnified<Complex>(device, extents);
+        auto tmp = alpaka::fft::onHost::allocUnified<Complex>(device, extents);
+        auto out = alpaka::fft::onHost::allocUnified<Complex>(device, extents);
 
         for(uint32_t i = 0; i < n; ++i)
             in.data()[i] = Complex{float(static_cast<int>(i) - 3), float(static_cast<int>(i % 3u) - 1)};
@@ -72,9 +72,9 @@ TEMPLATE_LIST_TEST_CASE(
         constexpr uint32_t n = 8u;
         auto extents = n;
 
-        auto in = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, extents);
-        auto tmp = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, extents);
-        auto out = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, extents);
+        auto in = alpaka::fft::onHost::allocUnified<Complex>(device, extents);
+        auto tmp = alpaka::fft::onHost::allocUnified<Complex>(device, extents);
+        auto out = alpaka::fft::onHost::allocUnified<Complex>(device, extents);
 
         for(uint32_t i = 0; i < n; ++i)
             in.data()[i] = Complex{float(static_cast<int>(i) - 3), float(static_cast<int>(i % 3u) - 1)};
@@ -191,7 +191,7 @@ TEMPLATE_LIST_TEST_CASE("FFT R2C/C2R in place 1D", "[integr][fft][r2c][c2r]", Te
         auto queue = device.makeQueue();
         constexpr uint32_t n = 8u;
         auto storage = makeInPlaceRealStorage<float>(n);
-        auto realBuffer = alpaka::fft::onHost::allocUnifiedForFFT<float>(device, n);
+        auto realBuffer = alpaka::fft::onHost::allocUnified<float>(device, n);
 
         for(uint32_t i = 0; i < n; ++i)
             realBuffer.data()[i] = float(i + 1u);

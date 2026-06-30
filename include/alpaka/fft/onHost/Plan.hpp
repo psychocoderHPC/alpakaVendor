@@ -168,7 +168,7 @@ namespace alpaka::fft::onHost
         /** Request in-place execution.
          *
          * For real/complex transforms the buffer must use the padded FFT storage layout returned by the
-         * `alloc*ForFFT()` helpers or an equivalent manual layout.
+         * `alpaka::fft::onHost::alloc*()` helpers or an equivalent manual layout.
          */
         PlanBuilder& inPlace()
         {

@@ -36,8 +36,8 @@ TEMPLATE_LIST_TEST_CASE("Batched C2C transform", "[doc][batched][c2c]", TestBack
     constexpr uint32_t n = 8u;
     constexpr uint32_t batchSize = 4u;
 
-    auto in = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, batchSize * n);
-    auto out = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, batchSize * n);
+    auto in = alpaka::fft::onHost::allocUnified<Complex>(device, batchSize * n);
+    auto out = alpaka::fft::onHost::allocUnified<Complex>(device, batchSize * n);
 
     for(std::size_t b = 0; b < batchSize; ++b)
         for(std::size_t i = 0; i < n; ++i)

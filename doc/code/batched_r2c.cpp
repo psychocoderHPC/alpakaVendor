@@ -37,8 +37,8 @@ TEMPLATE_LIST_TEST_CASE("Batched R2C transform", "[doc][batched][r2c]", TestBack
     constexpr uint32_t batchSize = 4u;
     constexpr uint32_t complexN = r2cComplexExtent(n);
 
-    auto in = alpaka::fft::onHost::allocUnifiedForFFT<float>(device, batchSize * n);
-    auto out = alpaka::fft::onHost::allocUnifiedForFFT<Complex>(device, batchSize * complexN);
+    auto in = alpaka::fft::onHost::allocUnified<float>(device, batchSize * n);
+    auto out = alpaka::fft::onHost::allocUnified<Complex>(device, batchSize * complexN);
 
     for(std::size_t b = 0; b < batchSize; ++b)
         for(std::size_t i = 0; i < n; ++i)

@@ -41,8 +41,8 @@ auto queue = dev.makeQueue();
 // Allocate FFT-managed buffers
 constexpr uint32_t N = 1024;
 constexpr float frequency = 5.0f;  // signal frequency in cycles per sample
-auto in  = alpaka::fft::onHost::allocForFFT<float>(dev, N);
-auto out = alpaka::fft::onHost::allocForFFT<alpaka::math::Complex<float>>(dev, N);
+auto in  = alpaka::fft::onHost::alloc<float>(dev, N);
+auto out = alpaka::fft::onHost::alloc<alpaka::math::Complex<float>>(dev, N);
 
 // Generate a sine wave
 for(uint32_t i = 0; i < N; ++i)

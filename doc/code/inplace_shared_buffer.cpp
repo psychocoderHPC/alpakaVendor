@@ -35,7 +35,7 @@ TEMPLATE_LIST_TEST_CASE("SharedBufferFFT example", "[doc][inplace][shared_buffer
     auto storage = makeInPlaceRealStorage<float>(n);
 
     // Allocate physical storage
-    auto realBuffer = alpaka::fft::onHost::allocUnifiedForFFT<float>(device, n);
+    auto realBuffer = alpaka::fft::onHost::allocUnified<float>(device, n);
 
     // Verify buffer properties
     CHECK(realBuffer);

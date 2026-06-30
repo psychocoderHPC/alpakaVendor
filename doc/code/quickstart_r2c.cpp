@@ -35,10 +35,9 @@ TEMPLATE_LIST_TEST_CASE("Quickstart: Basic R2C transform", "[doc][quickstart][r2
     //! [quickstart-r2c-backends]
 
     //! [quickstart-r2c-core]
-    auto in = alpaka::fft::onHost::allocUnifiedForFFT<float>(device, n);
-    auto out = alpaka::fft::onHost::allocUnifiedForFFT<alpaka::math::Complex<float>>(
-        device,
-        alpaka::fft::r2cComplexExtent(n));
+    auto in = alpaka::fft::onHost::allocUnified<float>(device, n);
+    auto out
+        = alpaka::fft::onHost::allocUnified<alpaka::math::Complex<float>>(device, alpaka::fft::r2cComplexExtent(n));
 
     for(std::size_t i = 0; i < n; ++i)
         in.data()[i] = std::cos(2.0f * std::numbers::pi_v<float> * float(i) / float(n));
