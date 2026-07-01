@@ -119,15 +119,22 @@ auto builder = alpaka::fft::onHost::makePlan<float>(1024u).r2c();
 
 // CPU (FFTW)
 auto hostDevice = alpaka::onHost::makeHostDevice();
-auto hostQueue = hostDevice.makeQueue();
 auto hostPlan = builder.build(hostDevice);
 
 // NVIDIA GPU (cuFFT)
-using Acc = alpaka::AccGpuCudaRt<alpaka::DimInt<1u>, std::size_t>;
-auto const platform = alpaka::Platform<Acc>{};
-auto cudaDevice = alpaka::getDevByIdx(platform, 0);
-auto cudaQueue = alpaka::Queue<Acc, alpaka::Blocking>{cudaDevice};
+auto cudaDevSelector = alpaka::onHost::makeDeviceSelector(alpaka::api::cuda, alpaka::deviceKind::nvidiaGpu);
+auto cudaDevice = cudaDevSelector.makeDevice(0);
 auto cudaPlan = builder.build(cudaDevice);
+
+// AMD GPU (rocFFT)
+auto hipDevSelector = alpaka::onHost::makeDeviceSelector(alpaka::api::hip, alpaka::deviceKind::amdGpu);
+auto hipDevice = hipDevSelector.makeDevice(0);
+auto hipPlan = builder.build(hipDevice);
+
+// Intel oneAPI CPU (oneMKL DFT)
+auto oneApiDevSelector = alpaka::onHost::makeDeviceSelector(alpaka::api::oneApi, alpaka::deviceKind::cpu);
+auto oneApiDevice = oneApiDevSelector.makeDevice(0);
+auto oneApiPlan = builder.build(oneApiDevice);
 ```
 
 ## Memory Layout

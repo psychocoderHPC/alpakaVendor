@@ -41,7 +41,7 @@ else()
     FetchContent_Declare(
         alpaka3
         GIT_REPOSITORY https://github.com/alpaka-group/alpaka3.git
-        GIT_TAG 983b436c77b2be014aa654b9b2facf22bda8ad0e
+        GIT_TAG 41d2f6ad64d6592613d1156e4a3e5428b25088b6
     )
     FetchContent_MakeAvailable(alpaka3)
 endif()
