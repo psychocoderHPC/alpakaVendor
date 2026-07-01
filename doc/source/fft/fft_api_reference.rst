@@ -148,6 +148,35 @@ In-place real storage
        [[nodiscard]] constexpr auto makeInPlaceRealStorage(T_Extents logicalRealExtents);
    }
 
+Plan
+----
+
+.. code-block:: cpp
+
+   namespace alpaka::fft::onHost
+   {
+       template<typename T_Api, typename T_Value, alpaka::concepts::Vector T_Extents>
+       class Plan
+       {
+       public:
+           [[nodiscard]] auto transform() const noexcept;
+           [[nodiscard]] auto const& layout() const noexcept;
+           [[nodiscard]] auto const& options() const noexcept;
+           [[nodiscard]] auto workspaceBytes() const noexcept;
+
+           // Bind user-managed workspace (IMdSpan-compatible: view, buffer, mdspan)
+           void setWorkspace(alpaka::concepts::IMdSpan auto& span);
+
+           template<typename T_In, typename T_Out>
+           void execute(auto& queue, T_In const& in, T_Out& out, Direction direction);
+
+           void keepAlive(auto& queue) const;
+       };
+   }
+
+``setWorkspace()`` accepts any alpaka ``IMdSpan``-compatible object (``View``, ``SharedBuffer``,
+``SharedBufferFFT``, etc.).  The required byte size is obtained via ``workspaceBytes()``.
+
 PlanBuilder
 -----------
 
