@@ -67,10 +67,14 @@ namespace alpaka::fft::onHost
          *
          * The storage must remain valid for every later execution that uses this plan. Rebinding replaces the
          * previously configured workspace for subsequent launches.
+         *
+         * @param span An alpaka mdspan-like object whose byte capacity is at least `workspaceBytes()`.
          */
-        void setWorkspace(void* ptr, std::size_t bytes)
+        void setWorkspace(alpaka::concepts::IMdSpan auto& span)
         {
-            m_impl->setWorkspace(ptr, bytes);
+            auto const bytes = alpaka::onHost::getExtents(span).product()
+                               * sizeof(alpaka::trait::GetValueType_t<ALPAKA_TYPEOF(span)>);
+            m_impl->setWorkspace(span.data(), static_cast<std::size_t>(bytes));
         }
 
         /** Execute the transform without implicit normalization.

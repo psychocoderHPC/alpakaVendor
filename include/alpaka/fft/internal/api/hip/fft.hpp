@@ -303,6 +303,7 @@ namespace alpaka::fft::internal
             validate(
                 m_options.workspacePolicy == WorkspacePolicy::userProvided,
                 "Plan does not use user-provided workspace.");
+            validate(ptr != nullptr, "Workspace pointer must not be nullptr.");
             validate(bytes >= m_workspaceBytes, "Provided rocFFT workspace is too small.");
             check(
                 rocfft_execution_info_set_work_buffer(m_execInfo, ptr, bytes),

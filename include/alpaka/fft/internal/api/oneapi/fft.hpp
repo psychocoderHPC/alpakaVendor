@@ -238,8 +238,9 @@ namespace alpaka::fft::internal
             validate(
                 m_options.workspacePolicy == WorkspacePolicy::userProvided,
                 "Plan does not use user-provided workspace.");
+            validate(ptr != nullptr, "Workspace pointer must not be nullptr.");
             validate(bytes >= m_workspaceBytes, "Provided oneMKL workspace is too small.");
-            m_descriptor->set_workspace(reinterpret_cast<std::uint8_t*>(ptr));
+            m_descriptor->set_workspace(reinterpret_cast<real_type*>(ptr));
             m_workspaceConfigured = true;
         }
 

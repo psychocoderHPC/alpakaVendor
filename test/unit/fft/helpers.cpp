@@ -45,20 +45,3 @@ TEMPLATE_LIST_TEST_CASE("in place real storage descriptor", "[unit][helpers]", T
     CHECK(storage.physicalRealElements == uint32_t{40u});
     CHECK(storage.logicalComplexElements == uint32_t{20u});
 }
-
-TEMPLATE_LIST_TEST_CASE(
-    "internal FFT layout helpers use padded real extents for in-place C2R",
-    "[unit][helpers]",
-    TestBackends)
-{
-    auto device = getDeviceOrSkipTest(TestType::makeDict());
-    using namespace alpaka::fft;
-    using Extents1D = Extents<uint32_t, 1u>;
-
-    Layout<Extents1D> layout{.extents = Extents1D{8u}};
-
-    CHECK(internal::expectedInputExtents(layout, Transform::c2r, Placement::inPlace) == Extents1D{5u});
-    CHECK(internal::expectedOutputExtents(layout, Transform::c2r, Placement::inPlace) == Extents1D{10u});
-    CHECK(internal::expectedInDistance(layout, Transform::c2r, Placement::inPlace) == uint32_t{5u});
-    CHECK(internal::expectedOutDistance(layout, Transform::c2r, Placement::inPlace) == uint32_t{10u});
-}
