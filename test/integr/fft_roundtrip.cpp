@@ -36,7 +36,7 @@ TEMPLATE_LIST_TEST_CASE("FFT C2C roundtrip 1D", "[integr][fft][c2c]", TestBacken
         for(uint32_t i = 0; i < n; ++i)
             in.data()[i] = Complex{float(static_cast<int>(i) - 3), float(static_cast<int>(i % 3u) - 1)};
 
-        auto plan = alpaka::fft::onHost::PlanBuilder<Complex>{n}.c2c().build(queue);
+        auto plan = alpaka::fft::onHost::PlanBuilder<Complex>{n}.c2c().build(device);
         alpaka::fft::onHost::executeForward(queue, plan, in, tmp);
         alpaka::fft::onHost::executeBackward(queue, plan, tmp, out);
         alpaka::onHost::wait(queue);
@@ -80,7 +80,7 @@ TEMPLATE_LIST_TEST_CASE(
             in.data()[i] = Complex{float(static_cast<int>(i) - 3), float(static_cast<int>(i % 3u) - 1)};
 
         {
-            auto plan = alpaka::fft::onHost::PlanBuilder<Complex>{n}.c2c().build(queue);
+            auto plan = alpaka::fft::onHost::PlanBuilder<Complex>{n}.c2c().build(device);
             alpaka::fft::onHost::executeForward(queue, plan, in, tmp);
             alpaka::fft::onHost::executeBackward(queue, plan, tmp, out);
         }
@@ -121,7 +121,7 @@ TEMPLATE_LIST_TEST_CASE("FFT C2C roundtrip 1D accepts plain alpaka buffers", "[i
         for(uint32_t i = 0; i < n; ++i)
             in.data()[i] = Complex{float(static_cast<int>(i) - 3), float(static_cast<int>(i % 3u) - 1)};
 
-        auto plan = alpaka::fft::onHost::PlanBuilder<Complex>{n}.c2c().build(queue);
+        auto plan = alpaka::fft::onHost::PlanBuilder<Complex>{n}.c2c().build(device);
         alpaka::fft::onHost::executeForward(queue, plan, in, tmp);
         alpaka::fft::onHost::executeBackward(queue, plan, tmp, out);
         alpaka::onHost::wait(queue);
@@ -163,10 +163,10 @@ TEMPLATE_LIST_TEST_CASE(
         for(uint32_t i = 0; i < n; ++i)
             in.data()[i] = float(i + 1u);
 
-        auto r2cPlan = alpaka::fft::onHost::PlanBuilder<float>{n}.r2c().outOfPlace().build(queue);
+        auto r2cPlan = alpaka::fft::onHost::PlanBuilder<float>{n}.r2c().outOfPlace().build(device);
         alpaka::fft::onHost::executeForward(queue, r2cPlan, in, spectrum);
 
-        auto c2rPlan = alpaka::fft::onHost::PlanBuilder<float>{n}.c2r().outOfPlace().build(queue);
+        auto c2rPlan = alpaka::fft::onHost::PlanBuilder<float>{n}.c2r().outOfPlace().build(device);
         alpaka::fft::onHost::executeBackward(queue, c2rPlan, spectrum, out);
         alpaka::onHost::wait(queue);
 
@@ -198,11 +198,11 @@ TEMPLATE_LIST_TEST_CASE("FFT R2C/C2R in place 1D", "[integr][fft][r2c][c2r]", Te
         for(uint32_t i = n; i < storage.physicalRealElements; ++i)
             realBuffer.data()[i] = 0.0f;
 
-        auto r2cPlan = alpaka::fft::onHost::PlanBuilder<float>{n}.r2c().inPlace().build(queue);
+        auto r2cPlan = alpaka::fft::onHost::PlanBuilder<float>{n}.r2c().inPlace().build(device);
         auto complexBuffer = alpaka::fft::onHost::executeR2CInPlace(queue, r2cPlan, realBuffer);
         CHECK(complexBuffer.getExtents() == storage.logicalComplexExtents);
 
-        auto c2rPlan = alpaka::fft::onHost::PlanBuilder<float>{n}.c2r().inPlace().build(queue);
+        auto c2rPlan = alpaka::fft::onHost::PlanBuilder<float>{n}.c2r().inPlace().build(device);
         auto recovered = alpaka::fft::onHost::executeC2RInPlace(queue, c2rPlan, complexBuffer);
         alpaka::onHost::wait(queue);
         CHECK(recovered.getExtents() == alpaka::fft::Extents<uint32_t, 1u>{n});
@@ -235,7 +235,7 @@ TEMPLATE_LIST_TEST_CASE("FFT plan keepAlive survives scope", "[integr][fft][plan
             in.data()[i] = Complex{float(i + 1u), float(2u * i + 1u)};
 
         {
-            auto plan = alpaka::fft::onHost::PlanBuilder<Complex>{n}.c2c().build(queue);
+            auto plan = alpaka::fft::onHost::PlanBuilder<Complex>{n}.c2c().build(device);
             alpaka::fft::onHost::executeForward(queue, plan, in, tmp);
             alpaka::fft::onHost::executeBackward(queue, plan, tmp, out);
             plan.keepAlive(queue);
@@ -274,7 +274,7 @@ TEMPLATE_LIST_TEST_CASE("FFT plan keepAlive after scoped execution", "[integr][f
             in.data()[i] = Complex{0.0f, 0.0f};
 
         {
-            auto plan = alpaka::fft::onHost::PlanBuilder<Complex>{n}.c2c().build(queue);
+            auto plan = alpaka::fft::onHost::PlanBuilder<Complex>{n}.c2c().build(device);
             alpaka::fft::onHost::executeForward(queue, plan, in, out);
             plan.keepAlive(queue);
         }

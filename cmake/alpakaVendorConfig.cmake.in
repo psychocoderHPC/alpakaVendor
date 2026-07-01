@@ -16,6 +16,10 @@ if(@alpakaV_DEP_ROCFFT@)
     find_dependency(rocfft REQUIRED CONFIG)
 endif()
 
+if(@alpakaV_DEP_ONEMKL@)
+    find_dependency(MKL REQUIRED CONFIG)
+endif()
+
 include("${CMAKE_CURRENT_LIST_DIR}/alpakaVendorTargets.cmake")
 
 if(TARGET alpakaVendor::alpakaVendor)

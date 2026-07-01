@@ -15,7 +15,7 @@ Set the batch count and distance between batch elements:
        .extents({N})
        .batch(batchSize)
        .distances(inDistance, outDistance)
-       .build(queue);
+       .build(device);
 
 Distance semantics
 ------------------

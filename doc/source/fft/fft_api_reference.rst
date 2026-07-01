@@ -171,7 +171,7 @@ PlanBuilder
            PlanBuilder& backendManagedWorkspace();
            PlanBuilder& userProvidedWorkspace();
 
-           [[nodiscard]] auto build(auto& queue) const;
+           [[nodiscard]] auto build(auto& device) const;
        };
    }
 

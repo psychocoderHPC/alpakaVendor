@@ -25,3 +25,11 @@
 #else
 #    define ALPAKAV_HAS_ROCFFT 0
 #endif
+
+#if ALPAKAV_DEP_ONEMKL && ALPAKA_LANG_ONEAPI && __has_include(<oneapi/mkl/dft.hpp>)
+#    include <oneapi/mkl/dft.hpp>
+#    include <sycl/sycl.hpp>
+#    define ALPAKAV_HAS_ONEMKL 1
+#else
+#    define ALPAKAV_HAS_ONEMKL 0
+#endif

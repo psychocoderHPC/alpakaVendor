@@ -52,7 +52,7 @@ for(uint32_t i = 0; i < N; ++i)
 auto plan = alpaka::fft::onHost::makePlan<float>(N)
                 .r2c()
                 .outOfPlace()
-                .build(queue);
+                .build(dev);
 
 alpaka::fft::onHost::executeForward(queue, plan, in, out);
 alpaka::onHost::wait(queue);
@@ -68,6 +68,7 @@ alpaka::onHost::wait(queue);
 - [FFTW 3.x](http://www.fftw.org/) (for CPU backend)
 - CUDA Toolkit (for NVIDIA GPU backend, optional)
 - ROCm / rocFFT (for AMD GPU backend, optional)
+- oneMKL DFT / oneAPI (for oneAPI CPU or Intel GPU backends, optional)
 
 ## Installation
 
@@ -105,12 +106,13 @@ target_link_libraries(your_target PRIVATE alpakaVendor::alpakaVendor)
 | `alpakaV_DEP_FFTW` | `ON`             | Enable FFTW host backend |
 | `alpakaV_DEP_CUFFT` | `OFF`            | Enable cuFFT CUDA backend |
 | `alpakaV_DEP_ROCFFT` | `OFF`            | Enable rocFFT HIP backend |
+| `alpakaV_DEP_ONEMKL` | `OFF`            | Enable oneMKL DFT oneAPI backend |
 | `alpakaV_TESTS` | `ON` (top-level) | Build tests |
 | `alpakaV_DOCS` | `OFF`            | Build documentation |
 
 ## Backend Selection
 
-The backend is inferred from the queue you pass to `build()`:
+The backend is inferred from the device you pass to `build()`:
 
 ```cpp
 auto builder = alpaka::fft::onHost::makePlan<float>(1024u).r2c();
@@ -118,14 +120,14 @@ auto builder = alpaka::fft::onHost::makePlan<float>(1024u).r2c();
 // CPU (FFTW)
 auto hostDevice = alpaka::onHost::makeHostDevice();
 auto hostQueue = hostDevice.makeQueue();
-auto hostPlan = builder.build(hostQueue);
+auto hostPlan = builder.build(hostDevice);
 
 // NVIDIA GPU (cuFFT)
 using Acc = alpaka::AccGpuCudaRt<alpaka::DimInt<1u>, std::size_t>;
 auto const platform = alpaka::Platform<Acc>{};
 auto cudaDevice = alpaka::getDevByIdx(platform, 0);
 auto cudaQueue = alpaka::Queue<Acc, alpaka::Blocking>{cudaDevice};
-auto cudaPlan = builder.build(cudaQueue);
+auto cudaPlan = builder.build(cudaDevice);
 ```
 
 ## Memory Layout

@@ -53,6 +53,13 @@ rocFFT HIP backend
 
    cmake .. -DalpakaV_DEP_ROCFFT=ON -Dalpaka_DEP_HIP=ON -Dalpaka_HIP_AmdGpu=ON
 
+oneMKL oneAPI backend
++++++++++++++++++++++
+
+.. code-block:: bash
+
+   cmake .. -DCMAKE_CXX_COMPILER=icpx -Dalpaka_DEP_ONEAPI=ON -Dalpaka_ONEAPI_Cpu=ON -DalpakaV_DEP_ONEMKL=ON
+
 Backend-agnostic C++ usage
 --------------------------
 
@@ -63,7 +70,7 @@ The documentation examples are instantiated for all available backends:
    :start-after: //! [quickstart-c2c-backends]
    :end-before: //! [quickstart-c2c-backends]
 
-Once the queue is selected, plan creation and execution are backend-agnostic:
+Once the device is selected, plan creation is backend-agnostic and execution uses any queue on that device:
 
 .. literalinclude:: ../../../doc/code/quickstart_c2c.cpp
    :language: C++
@@ -93,7 +100,7 @@ Invalid configurations throw ``std::invalid_argument``:
        auto plan = PlanBuilder<float, Extents<uint32_t, 1u>>{}
            .r2c()
            .extents({0u})  // Invalid: zero extent
-           .build(queue);
+           .build(device);
    } catch (const std::invalid_argument& e) {
        std::cerr << "Error: " << e.what() << std::endl;
    }

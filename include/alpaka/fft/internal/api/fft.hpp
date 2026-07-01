@@ -24,3 +24,4 @@ namespace alpaka::fft::internal
 #include "alpaka/fft/internal/api/cuda/fft.hpp"
 #include "alpaka/fft/internal/api/hip/fft.hpp"
 #include "alpaka/fft/internal/api/host/fft.hpp"
+#include "alpaka/fft/internal/api/oneapi/fft.hpp"

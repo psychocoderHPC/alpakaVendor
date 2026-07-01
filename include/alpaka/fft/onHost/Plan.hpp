@@ -211,19 +211,25 @@ namespace alpaka::fft::onHost
             return *this;
         }
 
-        /** Create a backend-specific plan for the queue API.
+        /** Create a backend-specific plan for the selected device.
          *
-         * The queue selects the vendor backend and may also be used during plan creation, so any backend resources
-         * associated with the queue must stay valid until the plan is no longer used.
-         * Depending on the backend the real plan creation can be deferred to the execution.
+         * The device selects the backend used for plan creation and later execution.
          */
-        [[nodiscard]] auto build(auto& queue) const
+        [[nodiscard]] auto build(alpaka::onHost::internal::concepts::Device auto& device) const
+        {
+            auto queue = device.makeQueue();
+            return makePlanFromQueue(queue);
+        }
+
+    private:
+        template<typename T_BuildQueue>
+        requires alpaka::onHost::internal::concepts::Queue<T_BuildQueue>
+        [[nodiscard]] auto makePlanFromQueue(T_BuildQueue& queue) const
         {
             using Api = decltype(alpaka::getApi(queue));
             return Plan<Api, T_Value, T_Extents>{queue, m_transform, m_layout, m_options};
         }
 
-    private:
         Transform m_transform = Transform::c2c;
         Layout<T_Extents> m_layout{};
         PlanOptions m_options{};

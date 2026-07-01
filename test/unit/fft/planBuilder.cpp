@@ -24,9 +24,7 @@ TEMPLATE_LIST_TEST_CASE("PlanBuilder defaults are applied", "[unit][plan]", Test
         using namespace alpaka::fft;
         using Complex = alpaka::math::Complex<float>;
 
-        auto queue = device.makeQueue();
-
-        auto plan = alpaka::fft::onHost::PlanBuilder<Complex>{8u}.c2c().build(queue);
+        auto plan = alpaka::fft::onHost::PlanBuilder<Complex>{8u}.c2c().build(device);
         CHECK(plan.transform() == Transform::c2c);
         CHECK(plan.layout().extents == alpaka::fft::Extents<uint32_t, 1u>{8u});
         CHECK(plan.options().placement == Placement::outOfPlace);
@@ -48,9 +46,7 @@ TEMPLATE_LIST_TEST_CASE("invalid plan configuration throws", "[unit][plan]", Tes
         using namespace alpaka::fft;
         using Complex = alpaka::math::Complex<float>;
 
-        auto queue = device.makeQueue();
-
-        CHECK_THROWS_AS((alpaka::fft::onHost::PlanBuilder<float>{0u}.r2c().build(queue)), std::invalid_argument);
-        CHECK_THROWS_AS((alpaka::fft::onHost::PlanBuilder<Complex>{8u}.r2c().build(queue)), std::invalid_argument);
+        CHECK_THROWS_AS((alpaka::fft::onHost::PlanBuilder<float>{0u}.r2c().build(device)), std::invalid_argument);
+        CHECK_THROWS_AS((alpaka::fft::onHost::PlanBuilder<Complex>{8u}.r2c().build(device)), std::invalid_argument);
     }
 }

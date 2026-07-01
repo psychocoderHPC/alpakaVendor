@@ -42,7 +42,7 @@ TEMPLATE_LIST_TEST_CASE("Quickstart: Basic R2C transform", "[doc][quickstart][r2
     for(std::size_t i = 0; i < n; ++i)
         in.data()[i] = std::cos(2.0f * std::numbers::pi_v<float> * float(i) / float(n));
 
-    auto plan = alpaka::fft::onHost::makePlan<float>(n).r2c().outOfPlace().build(queue);
+    auto plan = alpaka::fft::onHost::makePlan<float>(n).r2c().outOfPlace().build(device);
 
     alpaka::fft::onHost::executeForward(queue, plan, in, out);
     alpaka::onHost::wait(queue);

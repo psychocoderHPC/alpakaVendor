@@ -118,6 +118,12 @@ Enable ROCm and rocFFT for the AMD GPU backend:
 
    cmake .. -DalpakaV_DEP_ROCFFT=ON -Dalpaka_DEP_HIP=ON -Dalpaka_HIP_AmdGpu=ON
 
+Enable oneAPI and oneMKL DFT for the oneAPI CPU or Intel GPU backend:
+
+.. code-block:: bash
+
+   cmake .. -DCMAKE_CXX_COMPILER=icpx -Dalpaka_DEP_ONEAPI=ON -Dalpaka_ONEAPI_Cpu=ON -DalpakaV_DEP_ONEMKL=ON
+
 Relevant FFT options:
 
 .. list-table::
@@ -132,6 +138,8 @@ Relevant FFT options:
      - Enable cuFFT CUDA backend (default: OFF)
    * - ``alpakaV_DEP_ROCFFT``
      - Enable rocFFT HIP backend (default: OFF)
+   * - ``alpakaV_DEP_ONEMKL``
+     - Enable oneMKL DFT oneAPI backend (default: OFF)
 
 Example CPU-only configuration:
 

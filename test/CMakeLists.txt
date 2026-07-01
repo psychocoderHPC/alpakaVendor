@@ -32,6 +32,16 @@ function(alpakaV_add_test_target target_prefix folder)
         if(NOT alpakaV_DEP_ROCFFT)
             target_compile_definitions(${test_target_name} PRIVATE ALPAKA_DISABLE_Hip_AmdGpu)
         endif()
+        if(NOT alpakaV_DEP_ONEMKL)
+            target_compile_definitions(
+                ${test_target_name}
+                PRIVATE
+                    ALPAKA_DISABLE_OneApi_Cpu
+                    ALPAKA_DISABLE_OneApi_IntelGpu
+                    ALPAKA_DISABLE_OneApi_NvidiaGpu
+                    ALPAKA_DISABLE_OneApi_AmdGpu
+            )
+        endif()
         alpaka_finalize(${test_target_name})
         catch_discover_tests(${test_target_name})
     endforeach()

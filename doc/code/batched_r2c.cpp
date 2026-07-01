@@ -47,7 +47,7 @@ TEMPLATE_LIST_TEST_CASE("Batched R2C transform", "[doc][batched][r2c]", TestBack
             in.data()[b * n + i] = std::cos(2.0f * std::numbers::pi_v<float> * freq * float(i) / float(n));
         }
 
-    auto plan = alpaka::fft::onHost::makePlan<float>(n).r2c().batch(batchSize).distances(n, complexN).build(queue);
+    auto plan = alpaka::fft::onHost::makePlan<float>(n).r2c().batch(batchSize).distances(n, complexN).build(device);
 
     alpaka::fft::onHost::executeForward(queue, plan, in, out);
     alpaka::onHost::wait(queue);

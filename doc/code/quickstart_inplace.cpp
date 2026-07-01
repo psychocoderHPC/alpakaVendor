@@ -44,14 +44,14 @@ TEMPLATE_LIST_TEST_CASE("Quickstart: In-place R2C/C2R roundtrip", "[doc][quickst
     for(std::size_t i = n; i < storage.physicalRealElements; ++i)
         buffer.data()[i] = 0.0f;
 
-    auto r2cPlan = alpaka::fft::onHost::makePlan<float>(n).r2c().inPlace().build(queue);
+    auto r2cPlan = alpaka::fft::onHost::makePlan<float>(n).r2c().inPlace().build(device);
 
     auto complexBuffer = alpaka::fft::onHost::executeR2CInPlace(queue, r2cPlan, buffer);
     alpaka::onHost::wait(queue);
 
     CHECK(complexBuffer.getExtents()[0] == storage.logicalComplexElements);
 
-    auto c2rPlan = alpaka::fft::onHost::makePlan<float>(n).c2r().inPlace().build(queue);
+    auto c2rPlan = alpaka::fft::onHost::makePlan<float>(n).c2r().inPlace().build(device);
 
     auto recovered = alpaka::fft::onHost::executeC2RInPlace(queue, c2rPlan, complexBuffer);
     alpaka::onHost::wait(queue);

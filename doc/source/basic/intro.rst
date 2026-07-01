@@ -38,7 +38,7 @@ Supported backends
 - **FFTW** (CPU): The fastest Fourier transform in the West. Supports float and double precision.
 - **cuFFT** (NVIDIA GPU): NVIDIA's CUDA FFT library. Requires CUDA toolkit.
 - **rocFFT** (AMD GPU): AMD's HIP FFT library.
-- **oneMKL** (Intel GPU): Intel's oneAPI Math Kernel Library. (Planned)
+- **oneMKL** (oneAPI CPU / Intel GPU): Intel's oneAPI Math Kernel Library.
 
 Requirements
 ------------

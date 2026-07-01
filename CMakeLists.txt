@@ -21,6 +21,7 @@ option(alpakaV_TESTS "Build alpakaVendor tests." ${PROJECT_IS_TOP_LEVEL})
 option(alpakaV_DEP_FFTW "Enable FFTW host backend." ON)
 option(alpakaV_DEP_CUFFT "Enable cuFFT CUDA backend." OFF)
 option(alpakaV_DEP_ROCFFT "Enable rocFFT HIP backend." OFF)
+option(alpakaV_DEP_ONEMKL "Enable oneMKL DFT oneAPI backend." OFF)
 option(alpakaV_DOCS "Build documentation and code snippets." OFF)
 
 if(alpaka_DEP_HIP)
@@ -64,6 +65,13 @@ if(alpakaV_DEP_ROCFFT)
     )
 endif()
 
+if(alpakaV_DEP_ONEMKL)
+    find_package(MKL REQUIRED CONFIG)
+    if(NOT TARGET MKL::MKL_SYCL::DFT)
+        message(FATAL_ERROR "Target MKL::MKL_SYCL::DFT is not available. You need OneApi MKL with TBB support.")
+    endif()
+endif()
+
 add_library(alpakaVendor INTERFACE)
 add_library(alpakaVendor::alpakaVendor ALIAS alpakaVendor)
 
@@ -79,6 +87,7 @@ target_compile_definitions(
         ALPAKAV_DEP_FFTW=$<BOOL:${alpakaV_DEP_FFTW}>
         ALPAKAV_DEP_CUFFT=$<BOOL:${alpakaV_DEP_CUFFT}>
         ALPAKAV_DEP_ROCFFT=$<BOOL:${alpakaV_DEP_ROCFFT}>
+        ALPAKAV_DEP_ONEMKL=$<BOOL:${alpakaV_DEP_ONEMKL}>
 )
 if(alpakaV_DEP_FFTW)
     target_link_libraries(alpakaVendor INTERFACE PkgConfig::FFTW3)
@@ -88,6 +97,9 @@ if(alpakaV_DEP_CUFFT)
 endif()
 if(alpakaV_DEP_ROCFFT)
     target_link_libraries(alpakaVendor INTERFACE roc::rocfft)
+endif()
+if(alpakaV_DEP_ONEMKL)
+    target_link_libraries(alpakaVendor INTERFACE MKL::MKL_SYCL::DFT)
 endif()
 
 if(alpakaV_TESTS)
