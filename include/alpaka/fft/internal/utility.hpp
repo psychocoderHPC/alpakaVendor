@@ -77,6 +77,8 @@ namespace alpaka::fft::internal
         Transform transform,
         Placement placement)
     {
+        if(placement == Placement::inPlace && transform == Transform::c2r)
+            return r2cPaddedRealExtent(layout.extents);
         if(placement == Placement::inPlace && transform == Transform::r2c)
             return r2cComplexExtent(layout.extents);
         if(transform == Transform::r2c)

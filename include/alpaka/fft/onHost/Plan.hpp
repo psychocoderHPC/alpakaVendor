@@ -85,6 +85,16 @@ namespace alpaka::fft::onHost
             m_impl->trackCompletion(queue);
         }
 
+        /** Keep the plan alive until the queue reaches this point.
+         *
+         * This mirrors alpaka's buffer `keepAlive()` helper and is useful when work using the plan has already been
+         * enqueued but the last host-side plan handle is about to leave scope.
+         */
+        void keepAlive(auto& queue) const
+        {
+            queue.enqueueHostFnDeferred([impl = m_impl] {});
+        }
+
     private:
         Transform m_transform;
         Layout<T_Extents> m_layout;
@@ -205,6 +215,7 @@ namespace alpaka::fft::onHost
          *
          * The queue selects the vendor backend and may also be used during plan creation, so any backend resources
          * associated with the queue must stay valid until the plan is no longer used.
+         * Depending on the backend the real plan creation can be deferred to the execution.
          */
         [[nodiscard]] auto build(auto& queue) const
         {
@@ -229,14 +240,20 @@ namespace alpaka::fft::onHost
         return PlanBuilder<T_Value, T_Extents>{extents};
     }
 
-    /** Convenience wrapper for `Direction::forward`. */
+    /** Convenience wrapper for `Direction::forward`.
+     *
+     * Depending on the backend the first invocation could have a higher latency do to deferred plan creation.
+     */
     template<typename T_Plan, typename T_Queue, typename T_In, typename T_Out>
     void executeForward(T_Queue& queue, T_Plan& plan, T_In const& in, T_Out& out)
     {
         plan.execute(queue, in, out, Direction::forward);
     }
 
-    /** Convenience wrapper for `Direction::backward`. */
+    /** Convenience wrapper for `Direction::backward`.
+     *
+     * Depending on the backend the first invocation could have a higher latency do to deferred plan creation.
+     */
     template<typename T_Plan, typename T_Queue, typename T_In, typename T_Out>
     void executeBackward(T_Queue& queue, T_Plan& plan, T_In const& in, T_Out& out)
     {
@@ -247,6 +264,7 @@ namespace alpaka::fft::onHost
      *
      * `buffer` is reinterpreted after execution; the returned view aliases the original allocation. Do not keep
      * using the old real extents as if they still described the transform output.
+     * Depending on the backend the first invocation could have a higher latency do to deferred plan creation.
      */
     template<
         typename T_Api,
@@ -269,6 +287,7 @@ namespace alpaka::fft::onHost
      *
      * The returned view aliases `buffer` and exposes only the logical real extents, not the padded physical
      * storage that may still be present in memory.
+     * Depending on the backend the first invocation could have a higher latency do to deferred plan creation.
      */
     template<
         typename T_Api,
