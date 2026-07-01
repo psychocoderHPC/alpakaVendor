@@ -55,19 +55,26 @@ namespace alpaka::fft
     template<typename T_Index, uint32_t T_dim>
     using Strides = alpaka::Vec<T_Index, T_dim>;
 
+    /** Memory layout descriptor for an FFT plan.
+     *
+     * Strides and distances are expressed in **bytes** (not elements), matching the alpaka pitch convention
+     * returned by `getPitches()`. When a backend library requires element counts, the conversion is performed
+     * automatically at execution time.
+     */
     template<alpaka::concepts::Vector T_Extents>
     struct Layout
     {
         using extents_type = T_Extents;
         using index_type = alpaka::trait::GetValueType_t<T_Extents>;
+        using byte_type = std::size_t;
         static constexpr uint32_t dim = T_Extents::dim();
 
         T_Extents extents{};
-        T_Extents inStrides{};
-        T_Extents outStrides{};
+        alpaka::Vec<byte_type, dim> inStrides{}; ///< Input byte-strides per dimension (alpaka pitch order).
+        alpaka::Vec<byte_type, dim> outStrides{}; ///< Output byte-strides per dimension (alpaka pitch order).
         index_type batch = static_cast<index_type>(1u);
-        index_type inDistance = static_cast<index_type>(0u);
-        index_type outDistance = static_cast<index_type>(0u);
+        byte_type inDistance = 0u; ///< Byte distance between consecutive input batches.
+        byte_type outDistance = 0u; ///< Byte distance between consecutive output batches.
     };
 
     struct PlanOptions

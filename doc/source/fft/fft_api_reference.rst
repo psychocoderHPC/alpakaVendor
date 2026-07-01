@@ -53,11 +53,11 @@ Layout
        struct Layout
        {
            T_Extents extents{};
-           T_Extents inStrides{};
-           T_Extents outStrides{};
+           alpaka::Vec<std::size_t, T_Extents::dim()> inStrides{};   ///< Byte-strides (alpaka pitch order)
+           alpaka::Vec<std::size_t, T_Extents::dim()> outStrides{};  ///< Byte-strides (alpaka pitch order)
            alpaka::trait::GetValueType_t<T_Extents> batch = 1u;
-           alpaka::trait::GetValueType_t<T_Extents> inDistance = 0u;
-           alpaka::trait::GetValueType_t<T_Extents> outDistance = 0u;
+           std::size_t inDistance = 0u;   ///< Byte distance between input batches
+           std::size_t outDistance = 0u;  ///< Byte distance between output batches
        };
    }
 
@@ -193,8 +193,23 @@ PlanBuilder
            PlanBuilder& c2r();
            PlanBuilder& extents(alpaka::concepts::VectorOrScalar auto const& value);
            PlanBuilder& batch(alpaka::trait::GetValueType_t<T_Extents> value);
-           PlanBuilder& strides(T_Extents in, T_Extents out);
-           PlanBuilder& distances(alpaka::trait::GetValueType_t<T_Extents> inDistance, alpaka::trait::GetValueType_t<T_Extents> outDistance);
+
+           /** Set byte-strides per dimension (alpaka pitch convention).
+           *
+           * Each value is the number of bytes to advance to the next element along
+           * the corresponding dimension. The last dimension is fast-moving.
+           * Backends convert to element strides automatically. */
+           PlanBuilder& strides(
+               alpaka::concepts::VectorOrScalar auto const& in,
+               alpaka::concepts::VectorOrScalar auto const& out);
+
+           /** Set byte-distance between consecutive batches.
+           *
+           * The number of bytes between the start of batch i and batch i+1.
+           * A value of 0 defaults to product(extents) * sizeof(value_type).
+           * Backends convert to element distance automatically. */
+           PlanBuilder& distances(std::size_t inDistanceBytes, std::size_t outDistanceBytes);
+
            PlanBuilder& inPlace();
            PlanBuilder& outOfPlace();
            PlanBuilder& backendManagedWorkspace();

@@ -115,16 +115,29 @@ TEMPLATE_LIST_TEST_CASE("expected strides are contiguous", "[unit][helpers][layo
     auto device = getDeviceOrSkipTest(TestType::makeDict());
     using namespace alpaka::fft;
     using Extents1D = Extents<uint32_t, 1u>;
-    using Strides1D = Strides<uint32_t, 1u>;
+    using Complex = alpaka::math::Complex<float>;
+    using ByteStrides1D = alpaka::Vec<std::size_t, 1u>;
 
     Layout<Extents1D> layout{.extents = Extents1D{8u}};
 
-    CHECK(internal::expectedInStrides(layout, Transform::c2c, Placement::outOfPlace) == Strides1D{1u});
-    CHECK(internal::expectedOutStrides(layout, Transform::c2c, Placement::outOfPlace) == Strides1D{1u});
-    CHECK(internal::expectedInStrides(layout, Transform::r2c, Placement::outOfPlace) == Strides1D{1u});
-    CHECK(internal::expectedOutStrides(layout, Transform::r2c, Placement::outOfPlace) == Strides1D{1u});
-    CHECK(internal::expectedInStrides(layout, Transform::c2r, Placement::outOfPlace) == Strides1D{1u});
-    CHECK(internal::expectedOutStrides(layout, Transform::c2r, Placement::outOfPlace) == Strides1D{1u});
+    CHECK(
+        internal::expectedInStrides<Complex>(layout, Transform::c2c, Placement::outOfPlace)
+        == ByteStrides1D{sizeof(Complex)});
+    CHECK(
+        internal::expectedOutStrides<Complex>(layout, Transform::c2c, Placement::outOfPlace)
+        == ByteStrides1D{sizeof(Complex)});
+    CHECK(
+        internal::expectedInStrides<float>(layout, Transform::r2c, Placement::outOfPlace)
+        == ByteStrides1D{sizeof(float)});
+    CHECK(
+        internal::expectedOutStrides<float>(layout, Transform::r2c, Placement::outOfPlace)
+        == ByteStrides1D{sizeof(Complex)});
+    CHECK(
+        internal::expectedInStrides<float>(layout, Transform::c2r, Placement::outOfPlace)
+        == ByteStrides1D{sizeof(Complex)});
+    CHECK(
+        internal::expectedOutStrides<float>(layout, Transform::c2r, Placement::outOfPlace)
+        == ByteStrides1D{sizeof(float)});
 }
 
 TEMPLATE_LIST_TEST_CASE("areZero detects zero and non-zero strides", "[unit][helpers][layout]", TestBackends)
@@ -144,15 +157,18 @@ TEMPLATE_LIST_TEST_CASE("expected distances default to product of extents", "[un
     auto device = getDeviceOrSkipTest(TestType::makeDict());
     using namespace alpaka::fft;
     using Extents1D = Extents<uint32_t, 1u>;
+    using Complex = alpaka::math::Complex<float>;
 
     Layout<Extents1D> layout{.extents = Extents1D{8u}};
 
-    CHECK(internal::expectedInDistance(layout, Transform::c2c, Placement::outOfPlace) == uint32_t{8u});
-    CHECK(internal::expectedOutDistance(layout, Transform::c2c, Placement::outOfPlace) == uint32_t{8u});
-    CHECK(internal::expectedInDistance(layout, Transform::r2c, Placement::outOfPlace) == uint32_t{8u});
-    CHECK(internal::expectedOutDistance(layout, Transform::r2c, Placement::outOfPlace) == uint32_t{5u});
-    CHECK(internal::expectedInDistance(layout, Transform::c2r, Placement::outOfPlace) == uint32_t{5u});
-    CHECK(internal::expectedOutDistance(layout, Transform::c2r, Placement::outOfPlace) == uint32_t{8u});
+    CHECK(
+        internal::expectedInDistance<Complex>(layout, Transform::c2c, Placement::outOfPlace) == 8u * sizeof(Complex));
+    CHECK(
+        internal::expectedOutDistance<Complex>(layout, Transform::c2c, Placement::outOfPlace) == 8u * sizeof(Complex));
+    CHECK(internal::expectedInDistance<float>(layout, Transform::r2c, Placement::outOfPlace) == 8u * sizeof(float));
+    CHECK(internal::expectedOutDistance<float>(layout, Transform::r2c, Placement::outOfPlace) == 5u * sizeof(Complex));
+    CHECK(internal::expectedInDistance<float>(layout, Transform::c2r, Placement::outOfPlace) == 5u * sizeof(Complex));
+    CHECK(internal::expectedOutDistance<float>(layout, Transform::c2r, Placement::outOfPlace) == 8u * sizeof(float));
 }
 
 TEMPLATE_LIST_TEST_CASE(
@@ -164,8 +180,30 @@ TEMPLATE_LIST_TEST_CASE(
     using namespace alpaka::fft;
     using Extents1D = Extents<uint32_t, 1u>;
 
-    Layout<Extents1D> layout{.extents = Extents1D{8u}, .inDistance = uint32_t{16u}, .outDistance = uint32_t{16u}};
+    Layout<Extents1D> layout{
+        .extents = Extents1D{8u},
+        .inDistance = std::size_t{16u},
+        .outDistance = std::size_t{16u}};
 
-    CHECK(internal::expectedInDistance(layout, Transform::c2c, Placement::outOfPlace) == uint32_t{16u});
-    CHECK(internal::expectedOutDistance(layout, Transform::c2c, Placement::outOfPlace) == uint32_t{16u});
+    CHECK(internal::expectedInDistance<float>(layout, Transform::c2c, Placement::outOfPlace) == std::size_t{16u});
+    CHECK(internal::expectedOutDistance<float>(layout, Transform::c2c, Placement::outOfPlace) == std::size_t{16u});
+}
+
+TEMPLATE_LIST_TEST_CASE("byte strides convert back to element strides", "[unit][helpers][layout]", TestBackends)
+{
+    auto device = getDeviceOrSkipTest(TestType::makeDict());
+    using namespace alpaka::fft;
+
+    auto const byteStrides = alpaka::Vec<std::size_t, 3u>{96u, 24u, 8u};
+    CHECK(
+        internal::stridesToElements<std::size_t>(byteStrides, sizeof(double))
+        == alpaka::Vec<std::size_t, 3u>{12u, 3u, 1u});
+}
+
+TEMPLATE_LIST_TEST_CASE("byte distances convert back to element distances", "[unit][helpers][layout]", TestBackends)
+{
+    auto device = getDeviceOrSkipTest(TestType::makeDict());
+    using namespace alpaka::fft;
+
+    CHECK(internal::distanceToElements<std::size_t>(128u, sizeof(alpaka::math::Complex<float>)) == 16u);
 }

@@ -155,27 +155,42 @@ namespace alpaka::fft::onHost
             return *this;
         }
 
-        /** Override the element strides passed to the backend.
+        /** Override the byte-strides passed to the backend.
          *
-         * Strides are expressed in elements, not bytes, and follow alpaka's layout convention where the last
-         * index is the fast-moving one. Call order relative to `extents()` does not matter.
+         * Strides are expressed in **bytes**, matching the alpaka pitch convention returned by `getPitches()`.
+         * Each value is the number of bytes to advance to reach the next element along the corresponding
+         * dimension. The last dimension is the fast-moving one. When a backend library requires element strides,
+         * the conversion (dividing by `sizeof(value_type)`) is performed automatically.
+         *
+         * Call order relative to `extents()` does not matter.
          */
-        PlanBuilder& strides(alpaka::concepts::Vector auto const& in, alpaka::concepts::Vector auto const& out)
+        PlanBuilder& strides(
+            alpaka::concepts::VectorOrScalar auto const& in,
+            alpaka::concepts::VectorOrScalar auto const& out)
         {
-            m_layout.inStrides = alpaka::fft::internal::castVec<T_Extents>(in);
-            m_layout.outStrides = alpaka::fft::internal::castVec<T_Extents>(out);
+            using byte_strides_type = alpaka::Vec<typename Layout<T_Extents>::byte_type, T_Extents::dim()>;
+            m_layout.inStrides = alpaka::fft::internal::normalizeVectorOrScalar<byte_strides_type>(in);
+            m_layout.outStrides = alpaka::fft::internal::normalizeVectorOrScalar<byte_strides_type>(out);
             return *this;
         }
 
-        /** Set the distance in elements between consecutive batches.
+        /** Set the byte distance between consecutive batches.
          *
-         * Distances smaller than the addressed transform footprint can make batches overlap, which is only safe if
-         * that aliasing is intentional. Call order relative to `extents()` does not matter.
+         * The distance is the number of **bytes** between the start of batch `i` and batch `i+1` in the
+         * input/output buffers. This matches the byte-level layout of alpaka buffers and views. When a backend
+         * library requires an element count, the conversion (dividing by `sizeof(value_type)`) is performed
+         * automatically.
+         *
+         * A distance of 0 means the batches are contiguous (distance = product of extents * sizeof(value_type)).
+         * Distances smaller than the transform footprint can make batches overlap, which is only safe if that
+         * aliasing is intentional.
+         *
+         * Call order relative to `extents()` does not matter.
          */
-        PlanBuilder& distances(index_type inDistance, index_type outDistance)
+        PlanBuilder& distances(std::size_t inDistanceBytes, std::size_t outDistanceBytes)
         {
-            m_layout.inDistance = inDistance;
-            m_layout.outDistance = outDistance;
+            m_layout.inDistance = inDistanceBytes;
+            m_layout.outDistance = outDistanceBytes;
             return *this;
         }
 

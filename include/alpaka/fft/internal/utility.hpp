@@ -49,11 +49,11 @@ namespace alpaka::fft::internal
             return filledVec<std::remove_cvref_t<decltype(extents)>, 1u>(extents);
     }
 
-    template<alpaka::concepts::Vector T_Strides>
-    [[nodiscard]] constexpr bool areZero(T_Strides const& strides)
+    template<alpaka::concepts::Vector T_Vec>
+    [[nodiscard]] constexpr bool areZero(T_Vec const& strides)
     {
-        for(uint32_t i = 0u; i < T_Strides::dim(); ++i)
-            if(strides[i] != static_cast<alpaka::trait::GetValueType_t<T_Strides>>(0u))
+        for(uint32_t i = 0u; i < T_Vec::dim(); ++i)
+            if(strides[i] != static_cast<alpaka::trait::GetValueType_t<T_Vec>>(0u))
                 return false;
         return true;
     }
@@ -86,44 +86,171 @@ namespace alpaka::fft::internal
         return layout.extents;
     }
 
-    template<alpaka::concepts::Vector T_Extents>
+    template<typename T_Value>
+    [[nodiscard]] constexpr std::size_t inputElementBytes(Transform transform)
+    {
+        using real_type = Real_t<T_Value>;
+        using complex_type = Complex_t<real_type>;
+
+        if constexpr(ComplexScalar<T_Value>)
+            return sizeof(T_Value);
+        else
+            return transform == Transform::c2r ? sizeof(complex_type) : sizeof(real_type);
+    }
+
+    template<typename T_Value>
+    [[nodiscard]] constexpr std::size_t outputElementBytes(Transform transform)
+    {
+        using real_type = Real_t<T_Value>;
+        using complex_type = Complex_t<real_type>;
+
+        if constexpr(ComplexScalar<T_Value>)
+            return sizeof(T_Value);
+        else
+            return transform == Transform::r2c ? sizeof(complex_type) : sizeof(real_type);
+    }
+
+    /** Return the expected input byte-distance between consecutive batches.
+     *
+     * When the user has not set a distance (value is 0), the default is the product of the input extents
+     * multiplied by the element size, giving a contiguous batch layout in bytes.
+     */
+    template<typename T_Value, alpaka::concepts::Vector T_Extents>
     [[nodiscard]] constexpr auto expectedInDistance(
         Layout<T_Extents> const& layout,
         Transform transform,
         Placement placement)
     {
-        if(layout.inDistance != static_cast<alpaka::trait::GetValueType_t<T_Extents>>(0u))
+        using byte_type = typename Layout<T_Extents>::byte_type;
+        if(layout.inDistance != static_cast<byte_type>(0u))
             return layout.inDistance;
-        return product(expectedInputExtents(layout, transform, placement));
+        return static_cast<byte_type>(
+            product(expectedInputExtents(layout, transform, placement)) * inputElementBytes<T_Value>(transform));
     }
 
-    template<alpaka::concepts::Vector T_Extents>
+    /** Return the expected output byte-distance between consecutive batches.
+     *
+     * When the user has not set a distance (value is 0), the default is the product of the output extents
+     * multiplied by the element size, giving a contiguous batch layout in bytes.
+     */
+    template<typename T_Value, alpaka::concepts::Vector T_Extents>
     [[nodiscard]] constexpr auto expectedOutDistance(
         Layout<T_Extents> const& layout,
         Transform transform,
         Placement placement)
     {
-        if(layout.outDistance != static_cast<alpaka::trait::GetValueType_t<T_Extents>>(0u))
+        using byte_type = typename Layout<T_Extents>::byte_type;
+        if(layout.outDistance != static_cast<byte_type>(0u))
             return layout.outDistance;
-        return product(expectedOutputExtents(layout, transform, placement));
+        return static_cast<byte_type>(
+            product(expectedOutputExtents(layout, transform, placement)) * outputElementBytes<T_Value>(transform));
     }
 
-    template<alpaka::concepts::Vector T_Extents>
+    /** Return the expected input byte-strides per dimension.
+     *
+     * Each stride is the number of bytes to advance to the next element along that dimension.
+     * The last dimension is the fast-moving one (stride = sizeof(T_Value)).
+     */
+    template<typename T_Value, alpaka::concepts::Vector T_Extents>
     [[nodiscard]] constexpr auto expectedInStrides(
         Layout<T_Extents> const& layout,
         Transform transform,
         Placement placement)
     {
-        return contiguousStrides(expectedInputExtents(layout, transform, placement));
+        using byte_type = typename Layout<T_Extents>::byte_type;
+        using byte_vec_type = alpaka::Vec<byte_type, T_Extents::dim()>;
+        auto elemStrides = contiguousStrides(expectedInputExtents(layout, transform, placement));
+        byte_vec_type byteStrides{};
+        for(uint32_t i = 0u; i < T_Extents::dim(); ++i)
+            byteStrides[i] = static_cast<byte_type>(elemStrides[i]) * inputElementBytes<T_Value>(transform);
+        return byteStrides;
     }
 
-    template<alpaka::concepts::Vector T_Extents>
+    /** Return the expected output byte-strides per dimension.
+     *
+     * Each stride is the number of bytes to advance to the next element along that dimension.
+     * The last dimension is the fast-moving one (stride = sizeof(T_Value)).
+     */
+    template<typename T_Value, alpaka::concepts::Vector T_Extents>
     [[nodiscard]] constexpr auto expectedOutStrides(
         Layout<T_Extents> const& layout,
         Transform transform,
         Placement placement)
     {
-        return contiguousStrides(expectedOutputExtents(layout, transform, placement));
+        using byte_type = typename Layout<T_Extents>::byte_type;
+        using byte_vec_type = alpaka::Vec<byte_type, T_Extents::dim()>;
+        auto elemStrides = contiguousStrides(expectedOutputExtents(layout, transform, placement));
+        byte_vec_type byteStrides{};
+        for(uint32_t i = 0u; i < T_Extents::dim(); ++i)
+            byteStrides[i] = static_cast<byte_type>(elemStrides[i]) * outputElementBytes<T_Value>(transform);
+        return byteStrides;
+    }
+
+    template<typename T_Value, alpaka::concepts::Vector T_Extents>
+    [[nodiscard]] constexpr auto resolvedInStrides(
+        Layout<T_Extents> const& layout,
+        Transform transform,
+        Placement placement)
+    {
+        if(!areZero(layout.inStrides))
+            return layout.inStrides;
+        return expectedInStrides<T_Value>(layout, transform, placement);
+    }
+
+    template<typename T_Value, alpaka::concepts::Vector T_Extents>
+    [[nodiscard]] constexpr auto resolvedOutStrides(
+        Layout<T_Extents> const& layout,
+        Transform transform,
+        Placement placement)
+    {
+        if(!areZero(layout.outStrides))
+            return layout.outStrides;
+        return expectedOutStrides<T_Value>(layout, transform, placement);
+    }
+
+    template<typename T_Index, uint32_t T_dim, alpaka::concepts::Vector T_Extents>
+    [[nodiscard]] constexpr auto embedsFromStrides(
+        alpaka::Vec<T_Index, T_dim> const& elemStrides,
+        T_Extents const& logicalExtents)
+    {
+        std::array<T_Index, T_dim> embeds{};
+        embeds[0] = static_cast<T_Index>(logicalExtents[0]);
+        for(uint32_t i = 1u; i < T_dim; ++i)
+        {
+            if(elemStrides[i] <= static_cast<T_Index>(0))
+                throw std::invalid_argument("FFT stride must be non-zero.");
+            if((elemStrides[i - 1u] % elemStrides[i]) != static_cast<T_Index>(0))
+                throw std::invalid_argument("FFT strides must describe a row-major pitched layout.");
+            embeds[i] = static_cast<T_Index>(elemStrides[i - 1u] / elemStrides[i]);
+        }
+        return embeds;
+    }
+
+    // ---------------------------------------------------------------------------
+    // Backend conversion helpers: bytes -> elements
+    // ---------------------------------------------------------------------------
+
+    /** Convert byte-strides to element-strides by dividing each by the element size.
+     *
+     * FFT backends (FFTW, oneMKL, rocFFT) work with element indices, so byte-strides
+     * must be converted before passing to the backend library.
+     */
+    template<typename T_Index, uint32_t T_dim>
+    [[nodiscard]] constexpr alpaka::Vec<T_Index, T_dim> stridesToElements(
+        alpaka::Vec<std::size_t, T_dim> const& byteStrides,
+        std::size_t elementSize)
+    {
+        alpaka::Vec<T_Index, T_dim> result{};
+        for(uint32_t i = 0u; i < T_dim; ++i)
+            result[i] = static_cast<T_Index>(byteStrides[i] / elementSize);
+        return result;
+    }
+
+    /** Convert a byte-distance to an element-distance by dividing by the element size. */
+    template<typename T_Index>
+    [[nodiscard]] constexpr T_Index distanceToElements(std::size_t byteDistance, std::size_t elementSize)
+    {
+        return static_cast<T_Index>(byteDistance / elementSize);
     }
 
     template<typename T>
