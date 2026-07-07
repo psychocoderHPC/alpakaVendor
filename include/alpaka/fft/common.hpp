@@ -136,34 +136,6 @@ namespace alpaka::fft
     template<typename T>
     using Real_t = typename Real<T>::type;
 
-    template<typename T_From, typename T_To>
-    inline constexpr bool isLosslessIntegralUpcastV
-        = std::integral<T_From> && std::integral<T_To>
-          && (std::same_as<std::remove_cv_t<T_From>, std::remove_cv_t<T_To>>
-              || ((std::is_signed_v<T_From> == std::is_signed_v<T_To>)
-                  && (std::numeric_limits<T_To>::digits >= std::numeric_limits<T_From>::digits))
-              || (std::is_unsigned_v<T_From> && std::is_signed_v<T_To>
-                  && (std::numeric_limits<T_To>::digits > std::numeric_limits<T_From>::digits)));
-
-    template<typename T_Value, uint32_t T_dim>
-    [[nodiscard]] constexpr auto filledVec(T_Value value)
-    {
-        alpaka::Vec<T_Value, T_dim> result{};
-        for(uint32_t i = 0u; i < T_dim; ++i)
-            result[i] = value;
-        return result;
-    }
-
-    template<alpaka::concepts::Vector T_Extents>
-    [[nodiscard]] constexpr auto product(T_Extents const& extents)
-    {
-        using index_type = alpaka::trait::GetValueType_t<T_Extents>;
-        index_type result = static_cast<index_type>(1u);
-        for(uint32_t i = 0u; i < T_Extents::dim(); ++i)
-            result *= extents[i];
-        return result;
-    }
-
     template<alpaka::concepts::Vector T_Extents>
     [[nodiscard]] constexpr auto contiguousStrides(T_Extents const& extents)
     {
@@ -286,7 +258,7 @@ namespace alpaka::fft
             if constexpr(alpaka::concepts::Vector<std::remove_cvref_t<decltype(logicalRealExtents)>>)
                 return std::remove_cvref_t<decltype(logicalRealExtents)>{logicalRealExtents};
             else
-                return filledVec<std::remove_cvref_t<decltype(logicalRealExtents)>, 1u>(logicalRealExtents);
+                return alpaka::Vec<std::remove_cvref_t<decltype(logicalRealExtents)>, 1u>::fill(logicalRealExtents);
         }();
         auto physicalRealExtents = r2cPaddedRealExtent(extents);
         auto logicalComplexExtents = r2cComplexExtent(extents);
@@ -294,9 +266,9 @@ namespace alpaka::fft
             .logicalRealExtents = extents,
             .physicalRealExtents = physicalRealExtents,
             .logicalComplexExtents = logicalComplexExtents,
-            .logicalRealElements = product(extents),
-            .physicalRealElements = product(physicalRealExtents),
-            .logicalComplexElements = product(logicalComplexExtents)};
+            .logicalRealElements = extents.product(),
+            .physicalRealElements = physicalRealExtents.product(),
+            .logicalComplexElements = logicalComplexExtents.product()};
     }
 
     /**
@@ -313,7 +285,7 @@ namespace alpaka::fft
             if constexpr(alpaka::concepts::Vector<std::remove_cvref_t<decltype(extentsArg)>>)
                 return std::remove_cvref_t<decltype(extentsArg)>{extentsArg};
             else
-                return filledVec<std::remove_cvref_t<decltype(extentsArg)>, 1u>(extentsArg);
+                return alpaka::Vec<std::remove_cvref_t<decltype(extentsArg)>, 1u>::fill(extentsArg);
         }();
         if constexpr(RealScalar<T_Value>)
         {

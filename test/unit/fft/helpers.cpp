@@ -27,7 +27,7 @@ TEMPLATE_LIST_TEST_CASE("fft helper extents", "[unit][helpers]", TestBackends)
     constexpr auto logical = Extents2D{4u, 9u};
     CHECK(r2cComplexExtent(logical) == Extents2D{4u, 5u});
     CHECK(r2cPaddedRealExtent(logical) == Extents2D{4u, 10u});
-    CHECK(product(logical) == uint16_t{36u});
+    CHECK(logical.product() == uint16_t{36u});
     CHECK(contiguousStrides(logical) == Strides2D{9u, 1u});
 }
 

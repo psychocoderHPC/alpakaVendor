@@ -13,16 +13,7 @@ namespace alpaka::fft::internal
     [[nodiscard]] constexpr auto castVec(T_SourceVec const& vec)
     {
         static_assert(T_TargetVec::dim() == T_SourceVec::dim(), "Extent dimensions must match.");
-        using source_index_type = alpaka::trait::GetValueType_t<T_SourceVec>;
-        using target_index_type = alpaka::trait::GetValueType_t<T_TargetVec>;
-        static_assert(
-            isLosslessIntegralUpcastV<source_index_type, target_index_type>,
-            "Extent vector element types must match or upcast without precision loss.");
-
-        T_TargetVec result{};
-        for(uint32_t i = 0u; i < T_TargetVec::dim(); ++i)
-            result[i] = static_cast<target_index_type>(vec[i]);
-        return result;
+        return alpaka::lpCast<alpaka::trait::GetValueType_t<T_TargetVec>>(vec);
     }
 
     template<alpaka::concepts::Vector T_TargetVec>
@@ -35,9 +26,9 @@ namespace alpaka::fft::internal
             using source_index_type = std::remove_cvref_t<decltype(value)>;
             using target_index_type = alpaka::trait::GetValueType_t<T_TargetVec>;
             static_assert(
-                isLosslessIntegralUpcastV<source_index_type, target_index_type>,
+                alpaka::concepts::LosslesslyConvertible<source_index_type, target_index_type>,
                 "Extent scalar type must upcast to the extent vector element type without precision loss.");
-            return filledVec<target_index_type, T_TargetVec::dim()>(static_cast<target_index_type>(value));
+            return alpaka::Vec<target_index_type, T_TargetVec::dim()>::fill(static_cast<target_index_type>(value));
         }
     }
 
@@ -46,7 +37,7 @@ namespace alpaka::fft::internal
         if constexpr(alpaka::concepts::Vector<std::remove_cvref_t<decltype(extents)>>)
             return std::remove_cvref_t<decltype(extents)>{extents};
         else
-            return filledVec<std::remove_cvref_t<decltype(extents)>, 1u>(extents);
+            return alpaka::Vec<std::remove_cvref_t<decltype(extents)>, 1u>::fill(extents);
     }
 
     template<alpaka::concepts::Vector T_Vec>
@@ -125,7 +116,7 @@ namespace alpaka::fft::internal
         if(layout.inDistance != static_cast<byte_type>(0u))
             return layout.inDistance;
         return static_cast<byte_type>(
-            product(expectedInputExtents(layout, transform, placement)) * inputElementBytes<T_Value>(transform));
+            expectedInputExtents(layout, transform, placement).product() * inputElementBytes<T_Value>(transform));
     }
 
     /** Return the expected output byte-distance between consecutive batches.
@@ -143,7 +134,7 @@ namespace alpaka::fft::internal
         if(layout.outDistance != static_cast<byte_type>(0u))
             return layout.outDistance;
         return static_cast<byte_type>(
-            product(expectedOutputExtents(layout, transform, placement)) * outputElementBytes<T_Value>(transform));
+            expectedOutputExtents(layout, transform, placement).product() * outputElementBytes<T_Value>(transform));
     }
 
     /** Return the expected input byte-strides per dimension.
