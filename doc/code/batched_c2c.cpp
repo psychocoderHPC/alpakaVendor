@@ -43,7 +43,11 @@ TEMPLATE_LIST_TEST_CASE("Batched C2C transform", "[doc][batched][c2c]", TestBack
         for(std::size_t i = 0; i < n; ++i)
             in.data()[b * n + i] = (i == 0u) ? Complex{1.0f, 0.0f} : Complex{0.0f, 0.0f};
 
-    auto plan = alpaka::fft::onHost::makePlan<Complex>(n).c2c().batch(batchSize).distances(n, n).build(device);
+    auto plan = alpaka::fft::onHost::makePlan<Complex>(n)
+                    .c2c()
+                    .batch(batchSize)
+                    .distances(n * sizeof(Complex), n * sizeof(Complex))
+                    .build(device);
 
     alpaka::fft::onHost::executeForward(queue, plan, in, out);
     alpaka::onHost::wait(queue);

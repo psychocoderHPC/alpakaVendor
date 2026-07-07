@@ -120,14 +120,6 @@ namespace alpaka::fft::internal
                 validate(m_transform == Transform::c2c, "Complex plan value type only supports C2C.");
             else
                 validate(m_transform != Transform::c2c, "Real plan value type only supports R2C/C2R.");
-            if(!areZero(m_layout.inStrides))
-                validate(
-                    m_layout.inStrides == expectedInStrides(m_layout, m_transform, m_options.placement),
-                    "Only contiguous input layout is supported.");
-            if(!areZero(m_layout.outStrides))
-                validate(
-                    m_layout.outStrides == expectedOutStrides(m_layout, m_transform, m_options.placement),
-                    "Only contiguous output layout is supported.");
         }
 
         [[nodiscard]] auto lengths() const
@@ -144,6 +136,17 @@ namespace alpaka::fft::internal
             std::vector<std::int64_t> result(T_dim + 1u, 0);
             for(uint32_t i = 0u; i < T_dim; ++i)
                 result[i + 1u] = static_cast<std::int64_t>(vec[i]);
+            return result;
+        }
+
+        /** Convert byte-strides to element-strides and return as int64 vector for oneMKL. */
+        [[nodiscard]] static auto elementStrideVector(
+            alpaka::Vec<std::size_t, T_dim> const& byteStrides,
+            std::size_t elementBytes)
+        {
+            std::vector<std::int64_t> result(T_dim + 1u, 0);
+            for(uint32_t i = 0u; i < T_dim; ++i)
+                result[i + 1u] = static_cast<std::int64_t>(byteStrides[i] / elementBytes);
             return result;
         }
 
@@ -167,16 +170,58 @@ namespace alpaka::fft::internal
 
         [[nodiscard]] auto forwardDomainDistance() const
         {
-            if(m_layout.inDistance != static_cast<index_type>(0u))
-                return m_layout.inDistance;
-            return product(forwardDomainExtents());
+            if constexpr(ComplexScalar<T_Value>)
+            {
+                return distanceToElements<index_type>(
+                    expectedInDistance<T_Value>(m_layout, m_transform, m_options.placement),
+                    inputElementBytes<T_Value>(m_transform));
+            }
+            else
+            {
+                auto const byteDistance
+                    = m_transform == Transform::r2c
+                          ? expectedInDistance<T_Value>(m_layout, m_transform, m_options.placement)
+                          : expectedOutDistance<T_Value>(m_layout, m_transform, m_options.placement);
+                return distanceToElements<index_type>(byteDistance, sizeof(real_type));
+            }
         }
 
         [[nodiscard]] auto backwardDomainDistance() const
         {
-            if(m_layout.outDistance != static_cast<index_type>(0u))
-                return m_layout.outDistance;
-            return product(backwardDomainExtents());
+            if constexpr(ComplexScalar<T_Value>)
+            {
+                return distanceToElements<index_type>(
+                    expectedOutDistance<T_Value>(m_layout, m_transform, m_options.placement),
+                    outputElementBytes<T_Value>(m_transform));
+            }
+            else
+            {
+                auto const byteDistance
+                    = m_transform == Transform::r2c
+                          ? expectedOutDistance<T_Value>(m_layout, m_transform, m_options.placement)
+                          : expectedInDistance<T_Value>(m_layout, m_transform, m_options.placement);
+                return distanceToElements<index_type>(byteDistance, sizeof(complex_type));
+            }
+        }
+
+        [[nodiscard]] auto forwardDomainStrides() const
+        {
+            if constexpr(ComplexScalar<T_Value>)
+                return expectedInStrides<T_Value>(m_layout, m_transform, m_options.placement);
+            else if(m_transform == Transform::r2c)
+                return resolvedInStrides<T_Value>(m_layout, m_transform, m_options.placement);
+            else
+                return resolvedOutStrides<T_Value>(m_layout, m_transform, m_options.placement);
+        }
+
+        [[nodiscard]] auto backwardDomainStrides() const
+        {
+            if constexpr(ComplexScalar<T_Value>)
+                return expectedOutStrides<T_Value>(m_layout, m_transform, m_options.placement);
+            else if(m_transform == Transform::r2c)
+                return resolvedOutStrides<T_Value>(m_layout, m_transform, m_options.placement);
+            else
+                return resolvedInStrides<T_Value>(m_layout, m_transform, m_options.placement);
         }
 
         void createDescriptor(auto& queue)
@@ -193,8 +238,12 @@ namespace alpaka::fft::internal
                     oneapi::mkl::dft::config_value::NOT_INPLACE);
             }
 
-            auto const forwardStrides = strideVector(contiguousStrides(forwardDomainExtents()));
-            auto const backwardStrides = strideVector(contiguousStrides(backwardDomainExtents()));
+            auto const forwardStrides = elementStrideVector(
+                forwardDomainStrides(),
+                sizeof(std::conditional_t<ComplexScalar<T_Value>, value_type, real_type>));
+            auto const backwardStrides = elementStrideVector(
+                backwardDomainStrides(),
+                sizeof(std::conditional_t<ComplexScalar<T_Value>, value_type, complex_type>));
             m_descriptor->set_value(oneapi::mkl::dft::config_param::FWD_STRIDES, forwardStrides);
             m_descriptor->set_value(oneapi::mkl::dft::config_param::BWD_STRIDES, backwardStrides);
             m_descriptor->set_value(

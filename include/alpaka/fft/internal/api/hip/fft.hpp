@@ -144,14 +144,6 @@ namespace alpaka::fft::internal
                 validate(m_transform == Transform::c2c, "Complex plan value type only supports C2C.");
             else
                 validate(m_transform != Transform::c2c, "Real plan value type only supports R2C/C2R.");
-            if(!areZero(m_layout.inStrides))
-                validate(
-                    m_layout.inStrides == expectedInStrides(m_layout, m_transform, m_options.placement),
-                    "Only contiguous input layout is supported.");
-            if(!areZero(m_layout.outStrides))
-                validate(
-                    m_layout.outStrides == expectedOutStrides(m_layout, m_transform, m_options.placement),
-                    "Only contiguous output layout is supported.");
         }
 
         [[nodiscard]] auto lengths() const
@@ -173,12 +165,18 @@ namespace alpaka::fft::internal
 
         [[nodiscard]] auto inStrides() const
         {
-            return reverseToSizeT(expectedInStrides(m_layout, m_transform, m_options.placement));
+            return reverseToSizeT(
+                stridesToElements<index_type>(
+                    resolvedInStrides<T_Value>(m_layout, m_transform, m_options.placement),
+                    inputElementBytes<T_Value>(m_transform)));
         }
 
         [[nodiscard]] auto outStrides() const
         {
-            return reverseToSizeT(expectedOutStrides(m_layout, m_transform, m_options.placement));
+            return reverseToSizeT(
+                stridesToElements<index_type>(
+                    resolvedOutStrides<T_Value>(m_layout, m_transform, m_options.placement),
+                    outputElementBytes<T_Value>(m_transform)));
         }
 
         [[nodiscard]] rocfft_result_placement placement() const
@@ -220,6 +218,12 @@ namespace alpaka::fft::internal
             check(rocfft_plan_description_create(&description), "rocfft_plan_description_create");
             auto const inStridesVals = inStrides();
             auto const outStridesVals = outStrides();
+            auto const inDistance = distanceToElements<std::size_t>(
+                expectedInDistance<T_Value>(m_layout, m_transform, m_options.placement),
+                inputElementBytes<T_Value>(m_transform));
+            auto const outDistance = distanceToElements<std::size_t>(
+                expectedOutDistance<T_Value>(m_layout, m_transform, m_options.placement),
+                outputElementBytes<T_Value>(m_transform));
             check(
                 rocfft_plan_description_set_data_layout(
                     description,
@@ -229,10 +233,10 @@ namespace alpaka::fft::internal
                     nullptr,
                     T_dim,
                     inStridesVals.data(),
-                    static_cast<std::size_t>(expectedInDistance(m_layout, m_transform, m_options.placement)),
+                    inDistance,
                     T_dim,
                     outStridesVals.data(),
-                    static_cast<std::size_t>(expectedOutDistance(m_layout, m_transform, m_options.placement))),
+                    outDistance),
                 "rocfft_plan_description_set_data_layout");
             return description;
         }

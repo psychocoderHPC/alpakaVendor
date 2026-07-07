@@ -132,11 +132,11 @@ namespace alpaka::fft::internal
 
             if(!areZero(m_layout.inStrides))
                 validate(
-                    m_layout.inStrides == expectedInStrides(m_layout, m_transform, m_options.placement),
+                    m_layout.inStrides == expectedInStrides<T_Value>(m_layout, m_transform, m_options.placement),
                     "Only contiguous input layout is supported.");
             if(!areZero(m_layout.outStrides))
                 validate(
-                    m_layout.outStrides == expectedOutStrides(m_layout, m_transform, m_options.placement),
+                    m_layout.outStrides == expectedOutStrides<T_Value>(m_layout, m_transform, m_options.placement),
                     "Only contiguous output layout is supported.");
         }
 
@@ -176,8 +176,12 @@ namespace alpaka::fft::internal
             auto nVals = n();
             auto inEmbedVals = inEmbed();
             auto outEmbedVals = outEmbed();
-            auto inDistance = static_cast<int>(expectedInDistance(m_layout, m_transform, m_options.placement));
-            auto outDistance = static_cast<int>(expectedOutDistance(m_layout, m_transform, m_options.placement));
+            auto inDistance = distanceToElements<int>(
+                expectedInDistance<T_Value>(m_layout, m_transform, m_options.placement),
+                inputElementBytes<T_Value>(m_transform));
+            auto outDistance = distanceToElements<int>(
+                expectedOutDistance<T_Value>(m_layout, m_transform, m_options.placement),
+                outputElementBytes<T_Value>(m_transform));
             int batch = static_cast<int>(m_layout.batch);
 
             if constexpr(ComplexScalar<T_Value>)

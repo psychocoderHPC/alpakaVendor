@@ -114,14 +114,6 @@ namespace alpaka::fft::internal
                 validate(m_transform == Transform::c2c, "Complex plan value type only supports C2C.");
             else
                 validate(m_transform != Transform::c2c, "Real plan value type only supports R2C/C2R.");
-            if(!areZero(m_layout.inStrides))
-                validate(
-                    m_layout.inStrides == expectedInStrides(m_layout, m_transform, m_options.placement),
-                    "Only contiguous input layout is supported.");
-            if(!areZero(m_layout.outStrides))
-                validate(
-                    m_layout.outStrides == expectedOutStrides(m_layout, m_transform, m_options.placement),
-                    "Only contiguous output layout is supported.");
         }
 
         [[nodiscard]] auto dims() const
@@ -134,20 +126,36 @@ namespace alpaka::fft::internal
 
         [[nodiscard]] auto inEmbed() const
         {
-            auto ext = expectedInputExtents(m_layout, m_transform, m_options.placement);
-            std::array<long long, T_dim> result{};
-            for(uint32_t i = 0u; i < T_dim; ++i)
-                result[i] = static_cast<long long>(ext[i]);
-            return result;
+            auto const ext = expectedInputExtents(m_layout, m_transform, m_options.placement);
+            auto const strides = stridesToElements<long long>(
+                resolvedInStrides<T_Value>(m_layout, m_transform, m_options.placement),
+                inputElementBytes<T_Value>(m_transform));
+            return embedsFromStrides(strides, ext);
         }
 
         [[nodiscard]] auto outEmbed() const
         {
-            auto ext = expectedOutputExtents(m_layout, m_transform, m_options.placement);
-            std::array<long long, T_dim> result{};
-            for(uint32_t i = 0u; i < T_dim; ++i)
-                result[i] = static_cast<long long>(ext[i]);
-            return result;
+            auto const ext = expectedOutputExtents(m_layout, m_transform, m_options.placement);
+            auto const strides = stridesToElements<long long>(
+                resolvedOutStrides<T_Value>(m_layout, m_transform, m_options.placement),
+                outputElementBytes<T_Value>(m_transform));
+            return embedsFromStrides(strides, ext);
+        }
+
+        [[nodiscard]] auto inputStride() const
+        {
+            auto const strides = stridesToElements<long long>(
+                resolvedInStrides<T_Value>(m_layout, m_transform, m_options.placement),
+                inputElementBytes<T_Value>(m_transform));
+            return strides[T_dim - 1u];
+        }
+
+        [[nodiscard]] auto outputStride() const
+        {
+            auto const strides = stridesToElements<long long>(
+                resolvedOutStrides<T_Value>(m_layout, m_transform, m_options.placement),
+                outputElementBytes<T_Value>(m_transform));
+            return strides[T_dim - 1u];
         }
 
         [[nodiscard]] cufftType type() const
@@ -171,6 +179,8 @@ namespace alpaka::fft::internal
             auto dimsVals = dims();
             auto inEmbedVals = inEmbed();
             auto outEmbedVals = outEmbed();
+            auto const inStride = inputStride();
+            auto const outStride = outputStride();
             check(cufftCreate(&m_handle), "cufftCreate");
             check(cufftSetStream(m_handle, queue.getNativeHandle()), "cufftSetStream");
             check(
@@ -183,11 +193,15 @@ namespace alpaka::fft::internal
                     static_cast<int>(T_dim),
                     dimsVals.data(),
                     inEmbedVals.data(),
-                    1,
-                    static_cast<long long>(expectedInDistance(m_layout, m_transform, m_options.placement)),
+                    inStride,
+                    static_cast<long long>(distanceToElements<long long>(
+                        expectedInDistance<T_Value>(m_layout, m_transform, m_options.placement),
+                        inputElementBytes<T_Value>(m_transform))),
                     outEmbedVals.data(),
-                    1,
-                    static_cast<long long>(expectedOutDistance(m_layout, m_transform, m_options.placement)),
+                    outStride,
+                    static_cast<long long>(distanceToElements<long long>(
+                        expectedOutDistance<T_Value>(m_layout, m_transform, m_options.placement),
+                        outputElementBytes<T_Value>(m_transform))),
                     type(),
                     static_cast<long long>(m_layout.batch),
                     &workSize),
