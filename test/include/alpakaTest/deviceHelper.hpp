@@ -77,9 +77,8 @@ namespace alpakaVendor::test
      * @param cfg Test configuration. An entry of the list returned from alpaka::onHost::allBackends().
      * @return A std::tuple with the device 0 and an executor. If no device is available, SKIP() the test.
      */
-    [[nodiscard]] auto getDeviceExecutorOrSkipTest(auto const& cfg) -> std::tuple<
-        decltype(alpaka::onHost::makeDeviceSelector(cfg).makeDevice(0)),
-        decltype(cfg[alpaka::object::exec])>
+    [[nodiscard]] auto getDeviceExecutorOrSkipTest(auto const& cfg) -> std::
+        tuple<decltype(alpaka::onHost::makeDeviceSelector(cfg).makeDevice(0)), decltype(cfg[alpaka::object::exec])>
     {
         auto device = getDeviceOrSkipTest(cfg);
         alpaka::concepts::Executor auto executor = cfg[alpaka::object::exec];

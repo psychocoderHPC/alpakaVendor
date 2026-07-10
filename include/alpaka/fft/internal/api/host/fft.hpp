@@ -363,8 +363,8 @@ namespace alpaka::fft::internal
                 validate(direction == Direction::forward || direction == Direction::backward, "Invalid direction.");
                 auto* inPtr = reinterpret_cast<typename traits::complex_type*>(rawInPtr);
                 auto* outPtr = reinterpret_cast<typename traits::complex_type*>(rawOutPtr);
-                queue.enqueueHostFn(
-                    [state = m_state, inPtr, outPtr, direction]()
+                queue.enqueueNativeFn(
+                    [state = m_state, inPtr, outPtr, direction]([[maybe_unused]] auto queueId)
                     {
                         if constexpr(std::same_as<real_type, float>)
                         {
@@ -389,8 +389,8 @@ namespace alpaka::fft::internal
                 {
                     validate(direction == Direction::forward, "R2C only supports forward execution.");
                     auto* outCpx = reinterpret_cast<typename traits::complex_type*>(rawOutPtr);
-                    queue.enqueueHostFn(
-                        [state = m_state, rawInPtr, outCpx]()
+                    queue.enqueueNativeFn(
+                        [state = m_state, rawInPtr, outCpx]([[maybe_unused]] auto queueId)
                         {
                             if constexpr(std::same_as<real_type, float>)
                             {
@@ -408,8 +408,8 @@ namespace alpaka::fft::internal
                 {
                     validate(direction == Direction::backward, "C2R only supports backward execution.");
                     auto* inCpx = reinterpret_cast<typename traits::complex_type*>(rawInPtr);
-                    queue.enqueueHostFn(
-                        [state = m_state, inCpx, rawOutPtr]()
+                    queue.enqueueNativeFn(
+                        [state = m_state, inCpx, rawOutPtr]([[maybe_unused]] auto queueId)
                         {
                             if constexpr(std::same_as<real_type, float>)
                             {

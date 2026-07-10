@@ -326,35 +326,39 @@ namespace alpaka::fft::internal
         {
             auto* rawInPtr = removeCvPtr(in.data());
             auto* rawOutPtr = removeCvPtr(out.data());
-            check(
-                rocfft_execution_info_set_stream(m_execInfo, reinterpret_cast<void*>(queue.getNativeHandle())),
-                "rocfft_execution_info_set_stream");
+            queue.enqueueNativeFn(
+                [=, this](auto cudaStream)
+                {
+                    check(
+                        rocfft_execution_info_set_stream(m_execInfo, reinterpret_cast<void*>(cudaStream)),
+                        "rocfft_execution_info_set_stream");
 
-            rocfft_plan activePlan = nullptr;
-            if constexpr(ComplexScalar<T_Value>)
-            {
-                activePlan = direction == Direction::forward ? m_forwardPlan : m_inversePlan;
-            }
-            else if(m_transform == Transform::r2c)
-            {
-                validate(direction == Direction::forward, "R2C only supports forward execution.");
-                activePlan = m_forwardPlan;
-            }
-            else
-            {
-                validate(direction == Direction::backward, "C2R only supports backward execution.");
-                activePlan = m_forwardPlan;
-            }
+                    rocfft_plan activePlan = nullptr;
+                    if constexpr(ComplexScalar<T_Value>)
+                    {
+                        activePlan = direction == Direction::forward ? m_forwardPlan : m_inversePlan;
+                    }
+                    else if(m_transform == Transform::r2c)
+                    {
+                        validate(direction == Direction::forward, "R2C only supports forward execution.");
+                        activePlan = m_forwardPlan;
+                    }
+                    else
+                    {
+                        validate(direction == Direction::backward, "C2R only supports backward execution.");
+                        activePlan = m_forwardPlan;
+                    }
 
-            void* inBuffers[] = {reinterpret_cast<void*>(rawInPtr)};
-            void* outBuffers[] = {reinterpret_cast<void*>(rawOutPtr)};
-            check(
-                rocfft_execute(
-                    activePlan,
-                    inBuffers,
-                    m_options.placement == Placement::inPlace ? nullptr : outBuffers,
-                    m_execInfo),
-                "rocfft_execute");
+                    void* inBuffers[] = {reinterpret_cast<void*>(rawInPtr)};
+                    void* outBuffers[] = {reinterpret_cast<void*>(rawOutPtr)};
+                    check(
+                        rocfft_execute(
+                            activePlan,
+                            inBuffers,
+                            m_options.placement == Placement::inPlace ? nullptr : outBuffers,
+                            m_execInfo),
+                        "rocfft_execute");
+                });
         }
 
     private:
