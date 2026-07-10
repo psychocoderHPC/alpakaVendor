@@ -22,7 +22,7 @@ using TestBackends = std::decay_t<
 TEMPLATE_LIST_TEST_CASE("Batched C2C transform", "[doc][batched][c2c]", TestBackends)
 {
     auto cfg = TestType::makeDict();
-    auto deviceSpec = cfg[alpaka::object::deviceSpec];
+    auto deviceSpec = alpaka::onHost::DeviceSpec{cfg};
     auto devSelector = alpaka::onHost::makeDeviceSelector(deviceSpec);
     if(!devSelector.isAvailable())
         SKIP("No device available for selected backend.");

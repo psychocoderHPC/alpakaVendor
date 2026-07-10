@@ -21,7 +21,7 @@ using TestBackends = std::decay_t<
 TEMPLATE_LIST_TEST_CASE("Batched 2D C2C transform from a 3D alpaka buffer", "[doc][batched][nd][2d]", TestBackends)
 {
     auto cfg = TestType::makeDict();
-    auto deviceSpec = cfg[alpaka::object::deviceSpec];
+    auto deviceSpec = alpaka::onHost::DeviceSpec{cfg};
     auto devSelector = alpaka::onHost::makeDeviceSelector(deviceSpec);
     if(!devSelector.isAvailable())
         SKIP("No device available for selected backend.");
@@ -83,7 +83,7 @@ TEMPLATE_LIST_TEST_CASE("Batched 2D C2C transform from a 3D alpaka buffer", "[do
 TEMPLATE_LIST_TEST_CASE("Batched 3D C2C transform from a 4D alpaka buffer", "[doc][batched][nd][3d]", TestBackends)
 {
     auto cfg = TestType::makeDict();
-    auto deviceSpec = cfg[alpaka::object::deviceSpec];
+    auto deviceSpec = alpaka::onHost::DeviceSpec{cfg};
     auto devSelector = alpaka::onHost::makeDeviceSelector(deviceSpec);
     if(!devSelector.isAvailable())
         SKIP("No device available for selected backend.");
