@@ -211,6 +211,46 @@ TEMPLATE_LIST_TEST_CASE("FFT R2C/C2R in place 1D", "[integr][fft][r2c][c2r]", Te
     }
 }
 
+TEMPLATE_LIST_TEST_CASE("FFT plan can switch queues", "[integr][fft][c2c][queue]", TestBackends)
+{
+    auto deviceExec = getDeviceExecutorOrSkipTest(TestType::makeDict());
+    auto device = getDevice(deviceExec);
+
+    if constexpr(!isFftBackendEnabledForDevice(device))
+    {
+        SKIP("No FFT backend enabled for this alpaka API.");
+    }
+    else
+    {
+        using Complex = alpaka::math::Complex<float>;
+
+        auto queue0 = device.makeQueue();
+        auto queue1 = device.makeQueue();
+        constexpr uint32_t n = 8u;
+        auto extents = alpaka::fft::Extents<uint32_t, 1u>{n};
+        auto in = alpaka::fft::onHost::allocUnified<Complex>(device, extents);
+        auto tmp = alpaka::fft::onHost::allocUnified<Complex>(device, extents);
+        auto out = alpaka::fft::onHost::allocUnified<Complex>(device, extents);
+
+        for(uint32_t i = 0; i < n; ++i)
+            in.data()[i] = Complex{float(i + 1u), float(static_cast<int>(i) - 2)};
+
+        auto plan = alpaka::fft::onHost::PlanBuilder<Complex>{n}.c2c().build(device);
+        alpaka::fft::onHost::executeForward(queue0, plan, in, tmp);
+        alpaka::onHost::wait(queue0);
+        alpaka::fft::onHost::executeBackward(queue1, plan, tmp, out);
+        alpaka::onHost::wait(queue1);
+
+        for(uint32_t i = 0; i < n; ++i)
+        {
+            CHECK(
+                out.data()[i].real() == Catch::Approx(in.data()[i].real() * float(n)).epsilon(1.0e-4).margin(1.0e-5));
+            CHECK(
+                out.data()[i].imag() == Catch::Approx(in.data()[i].imag() * float(n)).epsilon(1.0e-4).margin(1.0e-5));
+        }
+    }
+}
+
 TEMPLATE_LIST_TEST_CASE("FFT plan keepAlive survives scope", "[integr][fft][plan]", TestBackends)
 {
     auto deviceExec = getDeviceExecutorOrSkipTest(TestType::makeDict());

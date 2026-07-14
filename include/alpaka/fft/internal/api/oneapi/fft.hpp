@@ -52,6 +52,7 @@ namespace alpaka::fft::internal
         PlanOptions m_options;
         std::unique_ptr<descriptor_type> m_descriptor;
         sycl::queue m_syclQueue;
+        void* m_workspacePtr = nullptr;
         std::size_t m_workspaceBytes = 0u;
         bool m_workspaceConfigured = false;
 
@@ -77,6 +78,7 @@ namespace alpaka::fft::internal
             , m_options{other.m_options}
             , m_descriptor{std::move(other.m_descriptor)}
             , m_syclQueue{std::move(other.m_syclQueue)}
+            , m_workspacePtr{std::exchange(other.m_workspacePtr, nullptr)}
             , m_workspaceBytes{std::exchange(other.m_workspaceBytes, 0u)}
             , m_workspaceConfigured{std::exchange(other.m_workspaceConfigured, false)}
         {
@@ -94,6 +96,7 @@ namespace alpaka::fft::internal
                 m_options = other.m_options;
                 m_descriptor = std::move(other.m_descriptor);
                 m_syclQueue = std::move(other.m_syclQueue);
+                m_workspacePtr = std::exchange(other.m_workspacePtr, nullptr);
                 m_workspaceBytes = std::exchange(other.m_workspaceBytes, 0u);
                 m_workspaceConfigured = std::exchange(other.m_workspaceConfigured, false);
                 {
@@ -289,6 +292,7 @@ namespace alpaka::fft::internal
                 "Plan does not use user-provided workspace.");
             validate(ptr != nullptr, "Workspace pointer must not be nullptr.");
             validate(bytes >= m_workspaceBytes, "Provided oneMKL workspace is too small.");
+            m_workspacePtr = ptr;
             m_descriptor->set_workspace(reinterpret_cast<real_type*>(ptr));
             m_workspaceConfigured = true;
         }
@@ -302,43 +306,53 @@ namespace alpaka::fft::internal
             if(m_options.workspacePolicy == WorkspacePolicy::userProvided && m_workspaceBytes > 0u)
                 validate(m_workspaceConfigured, "User-provided oneMKL workspace must be bound before execution.");
 
-            alpaka::onHost::wait(queue);
-
             auto* rawInPtr = removeCvPtr(in.data());
             auto* rawOutPtr = removeCvPtr(out.data());
-            sycl::event event;
+            auto sharedEvent = std::make_shared<sycl::event>();
 
-            if constexpr(ComplexScalar<T_Value>)
-            {
-                auto* inPtr = reinterpret_cast<complex_type*>(rawInPtr);
-                auto* outPtr = reinterpret_cast<complex_type*>(rawOutPtr);
-                event = direction == Direction::forward
-                            ? oneapi::mkl::dft::compute_forward(*m_descriptor, inPtr, outPtr)
-                            : oneapi::mkl::dft::compute_backward(*m_descriptor, inPtr, outPtr);
-            }
-            else
-            {
-                using InValue = std::remove_cv_t<std::remove_pointer_t<decltype(rawInPtr)>>;
-                if constexpr(std::same_as<InValue, real_type>)
+            queue.enqueueNativeFn(
+                [=, this](sycl::queue syclQueue) -> sycl::event
                 {
-                    validate(direction == Direction::forward, "R2C only supports forward execution.");
-                    event = oneapi::mkl::dft::compute_forward(
-                        *m_descriptor,
-                        rawInPtr,
-                        reinterpret_cast<complex_type*>(rawOutPtr));
-                }
-                else
-                {
-                    validate(direction == Direction::backward, "C2R only supports backward execution.");
-                    event = oneapi::mkl::dft::compute_backward(
-                        *m_descriptor,
-                        reinterpret_cast<complex_type*>(rawInPtr),
-                        rawOutPtr);
-                }
-            }
+                    if(m_syclQueue != syclQueue)
+                    {
+                        waitForPending();
+                        m_syclQueue = syclQueue;
+                        m_descriptor->commit(m_syclQueue);
+                        if(m_options.workspacePolicy == WorkspacePolicy::userProvided && m_workspaceConfigured)
+                            m_descriptor->set_workspace(reinterpret_cast<real_type*>(m_workspacePtr));
+                    }
 
-            auto sharedEvent = std::make_shared<sycl::event>(std::move(event));
-            queue.enqueueHostFn([sharedEvent]() { sharedEvent->wait_and_throw(); });
+                    if constexpr(ComplexScalar<T_Value>)
+                    {
+                        auto* inPtr = reinterpret_cast<complex_type*>(rawInPtr);
+                        auto* outPtr = reinterpret_cast<complex_type*>(rawOutPtr);
+                        *sharedEvent = direction == Direction::forward
+                                           ? oneapi::mkl::dft::compute_forward(*m_descriptor, inPtr, outPtr)
+                                           : oneapi::mkl::dft::compute_backward(*m_descriptor, inPtr, outPtr);
+                    }
+                    else
+                    {
+                        using InValue = std::remove_cv_t<std::remove_pointer_t<decltype(rawInPtr)>>;
+                        if constexpr(std::same_as<InValue, real_type>)
+                        {
+                            validate(direction == Direction::forward, "R2C only supports forward execution.");
+                            *sharedEvent = oneapi::mkl::dft::compute_forward(
+                                *m_descriptor,
+                                rawInPtr,
+                                reinterpret_cast<complex_type*>(rawOutPtr));
+                        }
+                        else
+                        {
+                            validate(direction == Direction::backward, "C2R only supports backward execution.");
+                            *sharedEvent = oneapi::mkl::dft::compute_backward(
+                                *m_descriptor,
+                                reinterpret_cast<complex_type*>(rawInPtr),
+                                rawOutPtr);
+                        }
+                    }
+
+                    return *sharedEvent;
+                });
             std::lock_guard lock(m_pendingWaitsMutex);
             m_pendingWaits.emplace_back([sharedEvent]() { sharedEvent->wait_and_throw(); });
         }
