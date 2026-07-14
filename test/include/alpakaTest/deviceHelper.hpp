@@ -37,9 +37,9 @@ namespace alpakaVendor::test
      * @return The device 0 if available. Otherwise, SKIP() the test.
      */
     [[nodiscard]] auto getDeviceOrSkipTest(auto const& cfg)
-        -> decltype(alpaka::onHost::makeDeviceSelector(cfg[alpaka::object::deviceSpec]).makeDevice(0))
+        -> decltype(alpaka::onHost::makeDeviceSelector(cfg).makeDevice(0))
     {
-        auto deviceSpec = cfg[alpaka::object::deviceSpec];
+        auto deviceSpec = alpaka::onHost::DeviceSpec{cfg};
         auto devSelector = alpaka::onHost::makeDeviceSelector(deviceSpec);
         UNSCOPED_INFO("DeviceSpec: " << alpaka::onHost::getName(deviceSpec));
         UNSCOPED_INFO("API: " << deviceSpec.getApi().getName());
@@ -77,9 +77,8 @@ namespace alpakaVendor::test
      * @param cfg Test configuration. An entry of the list returned from alpaka::onHost::allBackends().
      * @return A std::tuple with the device 0 and an executor. If no device is available, SKIP() the test.
      */
-    [[nodiscard]] auto getDeviceExecutorOrSkipTest(auto const& cfg) -> std::tuple<
-        decltype(alpaka::onHost::makeDeviceSelector(cfg[alpaka::object::deviceSpec]).makeDevice(0)),
-        decltype(cfg[alpaka::object::exec])>
+    [[nodiscard]] auto getDeviceExecutorOrSkipTest(auto const& cfg) -> std::
+        tuple<decltype(alpaka::onHost::makeDeviceSelector(cfg).makeDevice(0)), decltype(cfg[alpaka::object::exec])>
     {
         auto device = getDeviceOrSkipTest(cfg);
         alpaka::concepts::Executor auto executor = cfg[alpaka::object::exec];

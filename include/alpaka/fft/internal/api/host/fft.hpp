@@ -352,35 +352,59 @@ namespace alpaka::fft::internal
             m_pendingWaits.emplace_back([event]() mutable { alpaka::onHost::wait(event); });
         }
 
+        static void executeComplex(
+            std::shared_ptr<PlanState> const& state,
+            auto* inPtr,
+            auto* outPtr,
+            Direction direction)
+        {
+            auto const plan = direction == Direction::forward ? state->m_forwardPlan : state->m_inversePlan;
+            validate(plan != nullptr, "FFTW plan creation failed.");
+            if constexpr(std::same_as<real_type, float>)
+                fftwf_execute_dft(plan, inPtr, outPtr);
+            else
+                fftw_execute_dft(plan, inPtr, outPtr);
+        }
+
+        static void executeR2C(
+            std::shared_ptr<PlanState> const& state,
+            real_type* rawInPtr,
+            typename traits::complex_type* outCpx)
+        {
+            validate(state->m_forwardPlan != nullptr, "FFTW plan creation failed.");
+            if constexpr(std::same_as<real_type, float>)
+                fftwf_execute_dft_r2c(state->m_forwardPlan, rawInPtr, outCpx);
+            else
+                fftw_execute_dft_r2c(state->m_forwardPlan, rawInPtr, outCpx);
+        }
+
+        static void executeC2R(
+            std::shared_ptr<PlanState> const& state,
+            typename traits::complex_type* inCpx,
+            real_type* rawOutPtr)
+        {
+            validate(state->m_forwardPlan != nullptr, "FFTW plan creation failed.");
+            if constexpr(std::same_as<real_type, float>)
+                fftwf_execute_dft_c2r(state->m_forwardPlan, inCpx, rawOutPtr);
+            else
+                fftw_execute_dft_c2r(state->m_forwardPlan, inCpx, rawOutPtr);
+        }
+
         void execute(auto& queue, auto const& in, auto& out, Direction direction)
         {
             auto* rawInPtr = removeCvPtr(in.data());
             auto* rawOutPtr = removeCvPtr(out.data());
             ensurePlansCreated(rawInPtr, rawOutPtr);
 
+            using QueueNative = decltype(queue.getNativeHandle());
             if constexpr(ComplexScalar<T_Value>)
             {
                 validate(direction == Direction::forward || direction == Direction::backward, "Invalid direction.");
                 auto* inPtr = reinterpret_cast<typename traits::complex_type*>(rawInPtr);
                 auto* outPtr = reinterpret_cast<typename traits::complex_type*>(rawOutPtr);
-                queue.enqueueHostFn(
-                    [state = m_state, inPtr, outPtr, direction]()
-                    {
-                        if constexpr(std::same_as<real_type, float>)
-                        {
-                            auto const plan
-                                = direction == Direction::forward ? state->m_forwardPlan : state->m_inversePlan;
-                            validate(plan != nullptr, "FFTW plan creation failed.");
-                            fftwf_execute_dft(plan, inPtr, outPtr);
-                        }
-                        else
-                        {
-                            auto const plan
-                                = direction == Direction::forward ? state->m_forwardPlan : state->m_inversePlan;
-                            validate(plan != nullptr, "FFTW plan creation failed.");
-                            fftw_execute_dft(plan, inPtr, outPtr);
-                        }
-                    });
+                queue.enqueueNativeFn(
+                    [state = m_state, inPtr, outPtr, direction]([[maybe_unused]] QueueNative nativeQueue)
+                    { executeComplex(state, inPtr, outPtr, direction); });
             }
             else
             {
@@ -389,38 +413,24 @@ namespace alpaka::fft::internal
                 {
                     validate(direction == Direction::forward, "R2C only supports forward execution.");
                     auto* outCpx = reinterpret_cast<typename traits::complex_type*>(rawOutPtr);
-                    queue.enqueueHostFn(
-                        [state = m_state, rawInPtr, outCpx]()
+                    queue.enqueueNativeFn(
+                        [state = m_state, rawInPtr, outCpx]([[maybe_unused]] QueueNative nativeQueue)
                         {
-                            if constexpr(std::same_as<real_type, float>)
-                            {
-                                validate(state->m_forwardPlan != nullptr, "FFTW plan creation failed.");
-                                fftwf_execute_dft_r2c(state->m_forwardPlan, rawInPtr, outCpx);
-                            }
-                            else
-                            {
-                                validate(state->m_forwardPlan != nullptr, "FFTW plan creation failed.");
-                                fftw_execute_dft_r2c(state->m_forwardPlan, rawInPtr, outCpx);
-                            }
+                            // Calling a helper function instead of the fft function directly is required because the
+                            // nvcc frontend is ignoring `if constexpr`.
+                            executeR2C(state, rawInPtr, outCpx);
                         });
                 }
                 else
                 {
                     validate(direction == Direction::backward, "C2R only supports backward execution.");
                     auto* inCpx = reinterpret_cast<typename traits::complex_type*>(rawInPtr);
-                    queue.enqueueHostFn(
-                        [state = m_state, inCpx, rawOutPtr]()
+                    queue.enqueueNativeFn(
+                        [state = m_state, inCpx, rawOutPtr]([[maybe_unused]] QueueNative nativeQueue)
                         {
-                            if constexpr(std::same_as<real_type, float>)
-                            {
-                                validate(state->m_forwardPlan != nullptr, "FFTW plan creation failed.");
-                                fftwf_execute_dft_c2r(state->m_forwardPlan, inCpx, rawOutPtr);
-                            }
-                            else
-                            {
-                                validate(state->m_forwardPlan != nullptr, "FFTW plan creation failed.");
-                                fftw_execute_dft_c2r(state->m_forwardPlan, inCpx, rawOutPtr);
-                            }
+                            // Calling a helper function instead of the fft function directly is required because the
+                            // nvcc frontend is ignoring `if constexpr`.
+                            executeC2R(state, inCpx, rawOutPtr);
                         });
                 }
             }
