@@ -232,62 +232,79 @@ namespace alpaka::fft::internal
             m_pendingWaits.emplace_back([event]() mutable { alpaka::onHost::wait(event); });
         }
 
+        static void executeComplex(cufftHandle handle, auto* rawInPtr, auto* rawOutPtr, Direction direction)
+        {
+            if constexpr(std::same_as<real_type, float>)
+                check(
+                    cufftExecC2C(
+                        handle,
+                        reinterpret_cast<cufftComplex*>(rawInPtr),
+                        reinterpret_cast<cufftComplex*>(rawOutPtr),
+                        direction == Direction::forward ? CUFFT_FORWARD : CUFFT_INVERSE),
+                    "cufftExecC2C");
+            else
+                check(
+                    cufftExecZ2Z(
+                        handle,
+                        reinterpret_cast<cufftDoubleComplex*>(rawInPtr),
+                        reinterpret_cast<cufftDoubleComplex*>(rawOutPtr),
+                        direction == Direction::forward ? CUFFT_FORWARD : CUFFT_INVERSE),
+                    "cufftExecZ2Z");
+        }
+
+        template<typename T_InPtr, typename T_OutPtr>
+        static void executeReal(cufftHandle handle, T_InPtr rawInPtr, T_OutPtr rawOutPtr, Direction direction)
+        {
+            using InValue = std::remove_cv_t<std::remove_pointer_t<T_InPtr>>;
+            if constexpr(std::same_as<InValue, real_type>)
+            {
+                validate(direction == Direction::forward, "R2C only supports forward execution.");
+                if constexpr(std::same_as<real_type, float>)
+                    check(cufftExecR2C(handle, rawInPtr, reinterpret_cast<cufftComplex*>(rawOutPtr)), "cufftExecR2C");
+                else
+                    check(
+                        cufftExecD2Z(handle, rawInPtr, reinterpret_cast<cufftDoubleComplex*>(rawOutPtr)),
+                        "cufftExecD2Z");
+            }
+            else
+            {
+                validate(direction == Direction::backward, "C2R only supports backward execution.");
+                if constexpr(std::same_as<real_type, float>)
+                    check(cufftExecC2R(handle, reinterpret_cast<cufftComplex*>(rawInPtr), rawOutPtr), "cufftExecC2R");
+                else
+                    check(
+                        cufftExecZ2D(handle, reinterpret_cast<cufftDoubleComplex*>(rawInPtr), rawOutPtr),
+                        "cufftExecZ2D");
+            }
+        }
+
         void execute(auto& queue, auto const& in, auto& out, Direction direction)
         {
             auto* rawInPtr = removeCvPtr(in.data());
             auto* rawOutPtr = removeCvPtr(out.data());
-            queue.enqueueNativeFn(
-                [=, this](auto cudaStream)
-                {
-                    check(cufftSetStream(m_handle, cudaStream), "cufftSetStream");
-                    if constexpr(ComplexScalar<T_Value>)
+            using QueueNative = decltype(queue.getNativeHandle());
+            if constexpr(ComplexScalar<T_Value>)
+            {
+                queue.enqueueNativeFn(
+                    [=, this](QueueNative cudaStream)
                     {
-                        if constexpr(std::same_as<real_type, float>)
-                            check(
-                                cufftExecC2C(
-                                    m_handle,
-                                    reinterpret_cast<cufftComplex*>(rawInPtr),
-                                    reinterpret_cast<cufftComplex*>(rawOutPtr),
-                                    direction == Direction::forward ? CUFFT_FORWARD : CUFFT_INVERSE),
-                                "cufftExecC2C");
-                        else
-                            check(
-                                cufftExecZ2Z(
-                                    m_handle,
-                                    reinterpret_cast<cufftDoubleComplex*>(rawInPtr),
-                                    reinterpret_cast<cufftDoubleComplex*>(rawOutPtr),
-                                    direction == Direction::forward ? CUFFT_FORWARD : CUFFT_INVERSE),
-                                "cufftExecZ2Z");
-                    }
-                    else
+                        check(cufftSetStream(m_handle, cudaStream), "cufftSetStream");
+                        // Calling a helper function instead of the fft function directly is required because the nvcc
+                        // frontend is ignoring `if constexpr`.
+                        executeComplex(m_handle, rawInPtr, rawOutPtr, direction);
+                    });
+            }
+            else
+            {
+                // Calling a helper function instead of the fft function directly is required because the nvcc frontend
+                // is ignoring `if constexpr`.
+                queue.enqueueNativeFn(
+                    [=, this](QueueNative cudaStream)
                     {
-                        using InValue = std::remove_cv_t<std::remove_pointer_t<decltype(rawInPtr)>>;
-                        if constexpr(std::same_as<InValue, real_type>)
-                        {
-                            validate(direction == Direction::forward, "R2C only supports forward execution.");
-                            if constexpr(std::same_as<real_type, float>)
-                                check(
-                                    cufftExecR2C(m_handle, rawInPtr, reinterpret_cast<cufftComplex*>(rawOutPtr)),
-                                    "cufftExecR2C");
-                            else
-                                check(
-                                    cufftExecD2Z(m_handle, rawInPtr, reinterpret_cast<cufftDoubleComplex*>(rawOutPtr)),
-                                    "cufftExecD2Z");
-                        }
-                        else
-                        {
-                            validate(direction == Direction::backward, "C2R only supports backward execution.");
-                            if constexpr(std::same_as<real_type, float>)
-                                check(
-                                    cufftExecC2R(m_handle, reinterpret_cast<cufftComplex*>(rawInPtr), rawOutPtr),
-                                    "cufftExecC2R");
-                            else
-                                check(
-                                    cufftExecZ2D(m_handle, reinterpret_cast<cufftDoubleComplex*>(rawInPtr), rawOutPtr),
-                                    "cufftExecZ2D");
-                        }
-                    }
-                });
+                        check(cufftSetStream(m_handle, cudaStream), "cufftSetStream");
+                        executeReal(m_handle, rawInPtr, rawOutPtr, direction);
+                    });
+            }
         }
 
     private:
