@@ -10,7 +10,7 @@ FFT
    Available today. Covers complex and real transforms, backend selection, batched execution, and in-place storage helpers.
 
 BLAS
-   Planned. Intended for linear algebra building blocks such as vector operations and matrix products.
+   Available. Covers Level-1 vector routines, GEMV, GEMM, strided batched GEMM, and triangular solve.
 
 Parallel primitives
    Planned. Intended for data-parallel building blocks such as elementwise transforms, sorting, scans, and reductions.

@@ -13,13 +13,14 @@ alpakaVendor is a header-only C++20 library that provides portable, type-safe ab
 | Module | Status | Description |
 |--------|--------|-------------|
 | **FFT** | Available | 1D/2D/3D C2C, R2C/C2R transforms with batched and in-place support |
-| **BLAS** | Planned | Linear algebra operations (gemm, axpy, etc.) |
+| **BLAS** | Available | BLAS Level-1, GEMV, GEMM, strided batched GEMM, and TRSM |
 | **Parallel Primitives** | Planned | Elementwise transforms, sorting, scans, reductions, and related building blocks |
 
 ## Features
 
 - **Portable**: Single codebase targeting CPU (FFTW), NVIDIA GPU (cuFFT), AMD GPU (rocFFT), and Intel GPU (oneMKL DFT) through alpaka's backend abstraction.
 - **Type-safe**: Strong typing for real and complex value types with compile-time dimension selection (1D, 2D, 3D).
+- **BLAS abstractions**: Portable BLAS operations for host and accelerator backends using alpaka queues and views.
 - **RAII-based**: Plans are RAII objects that own backend handles and clean up automatically.
 - **Batched transforms**: Efficient batched FFT operations with configurable strides and distances.
 - **In-place real transforms**: Safe in-place R2C/C2R transforms with automatic padding management and real/complex view conversion via `SharedBufferFFT`.
@@ -104,8 +105,11 @@ target_link_libraries(your_target PRIVATE alpakaVendor::alpakaVendor)
 | Option | Default          | Description |
 |--------|------------------|-------------|
 | `alpakaV_DEP_FFTW` | `ON`             | Enable FFTW host backend |
+| `alpakaV_DEP_OPENBLAS` | `ON`         | Enable OpenBLAS host backend |
 | `alpakaV_DEP_CUFFT` | `OFF`            | Enable cuFFT CUDA backend |
+| `alpakaV_DEP_CUBLAS` | `OFF`          | Enable cuBLAS CUDA backend |
 | `alpakaV_DEP_ROCFFT` | `OFF`            | Enable rocFFT HIP backend |
+| `alpakaV_DEP_ROCBLAS` | `OFF`         | Enable rocBLAS HIP backend |
 | `alpakaV_DEP_ONEMKL` | `OFF`            | Enable oneMKL DFT oneAPI backend |
 | `alpakaV_TESTS` | `ON` (top-level) | Build tests |
 | `alpakaV_DOCS` | `OFF`            | Build documentation |

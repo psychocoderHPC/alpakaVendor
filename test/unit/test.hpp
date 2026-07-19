@@ -34,10 +34,32 @@ namespace alpakaVendor::test
             return false;
     }
 
+    template<typename T_Api>
+    consteval bool isBlasBackendEnabledForApi()
+    {
+        using Api = std::remove_cvref_t<T_Api>;
+        if constexpr(std::same_as<Api, alpaka::api::Host>)
+            return ALPAKAV_DEP_OPENBLAS;
+        else if constexpr(std::same_as<Api, alpaka::api::Cuda>)
+            return ALPAKAV_DEP_CUBLAS;
+        else if constexpr(std::same_as<Api, alpaka::api::Hip>)
+            return ALPAKAV_DEP_ROCBLAS;
+        else if constexpr(std::same_as<Api, alpaka::api::OneApi>)
+            return ALPAKAV_DEP_ONEMKL;
+        else
+            return false;
+    }
+
     template<alpaka::concepts::Api T_Api, alpaka::concepts::DeviceKind T_DeviceKind>
     consteval bool isFftBackendEnabledForDevice(alpaka::onHost::Device<T_Api, T_DeviceKind> const&)
     {
         return isFftBackendEnabledForApi<T_Api>();
+    }
+
+    template<alpaka::concepts::Api T_Api, alpaka::concepts::DeviceKind T_DeviceKind>
+    consteval bool isBlasBackendEnabledForDevice(alpaka::onHost::Device<T_Api, T_DeviceKind> const&)
+    {
+        return isBlasBackendEnabledForApi<T_Api>();
     }
 
     template<typename T_Type>
