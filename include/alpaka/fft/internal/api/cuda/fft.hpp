@@ -252,10 +252,9 @@ namespace alpaka::fft::internal
                     "cufftExecZ2Z");
         }
 
-        template<typename T_InPtr, typename T_OutPtr>
-        static void executeReal(cufftHandle handle, T_InPtr rawInPtr, T_OutPtr rawOutPtr, Direction direction)
+        static void executeReal(cufftHandle handle, auto* rawInPtr, auto* rawOutPtr, Direction direction)
         {
-            using InValue = std::remove_cv_t<std::remove_pointer_t<T_InPtr>>;
+            using InValue = std::remove_cv_t<std::remove_pointer_t<ALPAKA_TYPEOF(rawInPtr)>>;
             if constexpr(std::same_as<InValue, real_type>)
             {
                 validate(direction == Direction::forward, "R2C only supports forward execution.");

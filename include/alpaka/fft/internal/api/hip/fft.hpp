@@ -154,8 +154,7 @@ namespace alpaka::fft::internal
             return result;
         }
 
-        template<alpaka::concepts::Vector T_Vec>
-        [[nodiscard]] static auto reverseToSizeT(T_Vec const& vec)
+        [[nodiscard]] static auto reverseToSizeT(alpaka::concepts::Vector auto const& vec)
         {
             std::array<std::size_t, T_dim> result{};
             for(uint32_t i = 0u; i < T_dim; ++i)

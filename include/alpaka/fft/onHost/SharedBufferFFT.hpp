@@ -31,24 +31,21 @@ namespace alpaka::fft::onHost
         std::shared_ptr<FftBufferMetadata<T_Extents>> metadata{};
     };
 
-    template<alpaka::concepts::Vector T_Extents>
-    [[nodiscard]] constexpr auto getRealExtents(FftBufferMetadata<T_Extents> const& metadata)
+    [[nodiscard]] constexpr auto getRealExtents(auto const& metadata)
     {
         if(!metadata.extents.has_value())
             throw std::invalid_argument("SharedBufferFFT does not contain FFT extent metadata.");
         return metadata.extents->logicalRealExtents;
     }
 
-    template<alpaka::concepts::Vector T_Extents>
-    [[nodiscard]] constexpr auto getComplexExtents(FftBufferMetadata<T_Extents> const& metadata)
+    [[nodiscard]] constexpr auto getComplexExtents(auto const& metadata)
     {
         if(!metadata.extents.has_value())
             throw std::invalid_argument("SharedBufferFFT does not contain FFT extent metadata.");
         return metadata.extents->logicalComplexExtents;
     }
 
-    template<alpaka::concepts::Vector T_Extents>
-    [[nodiscard]] constexpr auto getPhysicalRealExtents(FftBufferMetadata<T_Extents> const& metadata)
+    [[nodiscard]] constexpr auto getPhysicalRealExtents(auto const& metadata)
     {
         if(!metadata.extents.has_value())
             throw std::invalid_argument("SharedBufferFFT does not contain FFT extent metadata.");
@@ -78,15 +75,11 @@ namespace alpaka::fft::onHost
 
         SharedBufferFFT() = default;
 
-        template<
-            alpaka::concepts::HasApi T_Any,
-            alpaka::concepts::Vector T_UserExtents,
-            alpaka::concepts::Vector T_UserPitches>
         SharedBufferFFT(
-            T_Any const& any,
+            alpaka::concepts::HasApi auto const& any,
             T_Type* data,
-            T_UserExtents const& extents,
-            T_UserPitches const& pitches,
+            alpaka::concepts::Vector auto const& extents,
+            alpaka::concepts::Vector auto const& pitches,
             std::shared_ptr<alpaka::onHost::internal::ManagedDealloc> deleter,
             std::shared_ptr<FftBufferMetadata<T_Extents>> metadata,
             std::size_t capacityBytes,

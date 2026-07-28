@@ -82,8 +82,7 @@ namespace alpaka::fft::onHost
          * Forward and backward transforms use the raw vendor-library convention. A round-trip therefore usually
          * needs an explicit division by the logical FFT size to recover the original values.
          */
-        template<typename T_In, typename T_Out>
-        void execute(auto& queue, T_In const& in, T_Out& out, Direction direction)
+        void execute(auto& queue, auto const& in, auto& out, Direction direction)
         {
             m_impl->execute(queue, in, out, direction);
             m_impl->trackCompletion(queue);
@@ -241,9 +240,7 @@ namespace alpaka::fft::onHost
         }
 
     private:
-        template<typename T_BuildQueue>
-        requires alpaka::onHost::internal::concepts::Queue<T_BuildQueue>
-        [[nodiscard]] auto makePlanFromQueue(T_BuildQueue& queue) const
+        [[nodiscard]] auto makePlanFromQueue(alpaka::onHost::internal::concepts::Queue auto& queue) const
         {
             using Api = decltype(alpaka::getApi(queue));
             return Plan<Api, T_Value, T_Extents>{queue, m_transform, m_layout, m_options};
@@ -269,8 +266,7 @@ namespace alpaka::fft::onHost
      *
      * Depending on the backend the first invocation could have a higher latency do to deferred plan creation.
      */
-    template<typename T_Plan, typename T_Queue, typename T_In, typename T_Out>
-    void executeForward(T_Queue& queue, T_Plan& plan, T_In const& in, T_Out& out)
+    void executeForward(auto& queue, auto& plan, auto const& in, auto& out)
     {
         plan.execute(queue, in, out, Direction::forward);
     }
@@ -279,8 +275,7 @@ namespace alpaka::fft::onHost
      *
      * Depending on the backend the first invocation could have a higher latency do to deferred plan creation.
      */
-    template<typename T_Plan, typename T_Queue, typename T_In, typename T_Out>
-    void executeBackward(T_Queue& queue, T_Plan& plan, T_In const& in, T_Out& out)
+    void executeBackward(auto& queue, auto& plan, auto const& in, auto& out)
     {
         plan.execute(queue, in, out, Direction::backward);
     }
@@ -291,17 +286,10 @@ namespace alpaka::fft::onHost
      * using the old real extents as if they still described the transform output.
      * Depending on the backend the first invocation could have a higher latency do to deferred plan creation.
      */
-    template<
-        typename T_Api,
-        RealScalar T_Real,
-        alpaka::concepts::Vector T_Extents,
-        alpaka::concepts::Alignment T_MemAlignment,
-        typename T_Plan,
-        typename T_Queue>
-    auto executeR2CInPlace(
-        T_Queue& queue,
-        T_Plan& plan,
-        SharedBufferFFT<T_Api, T_Real, T_Extents, T_MemAlignment>& buffer)
+    auto executeR2CInPlace(auto& queue, auto& plan, auto& buffer) requires requires {
+        typename ALPAKA_TYPEOF(buffer)::value_type;
+        requires RealScalar<typename ALPAKA_TYPEOF(buffer)::value_type>;
+    }
     {
         auto complexBuffer = buffer.asComplex();
         plan.execute(queue, buffer, complexBuffer, Direction::forward);
@@ -314,17 +302,10 @@ namespace alpaka::fft::onHost
      * storage that may still be present in memory.
      * Depending on the backend the first invocation could have a higher latency do to deferred plan creation.
      */
-    template<
-        typename T_Api,
-        ComplexScalar T_Complex,
-        alpaka::concepts::Vector T_Extents,
-        alpaka::concepts::Alignment T_MemAlignment,
-        typename T_Plan,
-        typename T_Queue>
-    auto executeC2RInPlace(
-        T_Queue& queue,
-        T_Plan& plan,
-        SharedBufferFFT<T_Api, T_Complex, T_Extents, T_MemAlignment>& buffer)
+    auto executeC2RInPlace(auto& queue, auto& plan, auto& buffer) requires requires {
+        typename ALPAKA_TYPEOF(buffer)::value_type;
+        requires ComplexScalar<typename ALPAKA_TYPEOF(buffer)::value_type>;
+    }
     {
         auto realBuffer = buffer.asReal();
         plan.execute(queue, buffer, realBuffer, Direction::backward);

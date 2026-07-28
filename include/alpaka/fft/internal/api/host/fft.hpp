@@ -408,7 +408,7 @@ namespace alpaka::fft::internal
             }
             else
             {
-                using InValue = std::remove_cv_t<std::remove_pointer_t<decltype(rawInPtr)>>;
+                using InValue = std::remove_cv_t<std::remove_pointer_t<ALPAKA_TYPEOF(rawInPtr)>>;
                 if constexpr(std::same_as<InValue, real_type>)
                 {
                     validate(direction == Direction::forward, "R2C only supports forward execution.");

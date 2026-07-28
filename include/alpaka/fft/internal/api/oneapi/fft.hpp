@@ -133,8 +133,7 @@ namespace alpaka::fft::internal
             return result;
         }
 
-        template<alpaka::concepts::Vector T_Vec>
-        [[nodiscard]] static auto strideVector(T_Vec const& vec)
+        [[nodiscard]] static auto strideVector(alpaka::concepts::Vector auto const& vec)
         {
             std::vector<std::int64_t> result(T_dim + 1u, 0);
             for(uint32_t i = 0u; i < T_dim; ++i)
@@ -332,7 +331,7 @@ namespace alpaka::fft::internal
                     }
                     else
                     {
-                        using InValue = std::remove_cv_t<std::remove_pointer_t<decltype(rawInPtr)>>;
+                        using InValue = std::remove_cv_t<std::remove_pointer_t<ALPAKA_TYPEOF(rawInPtr)>>;
                         if constexpr(std::same_as<InValue, real_type>)
                         {
                             validate(direction == Direction::forward, "R2C only supports forward execution.");
