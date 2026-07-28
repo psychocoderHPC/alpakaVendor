@@ -33,6 +33,16 @@
 #endif
 
 #if ALPAKAV_DEP_ONEMKL && ALPAKA_LANG_ONEAPI && __has_include(<oneapi/mkl/blas.hpp>)
+/* oneMKL's C++ BLAS header includes mkl_cblas.h via oneapi/mkl/types.hpp.
+ * OpenBLAS and oneMKL both define the global CBLAS enums and function
+ * declarations, so avoid re-including oneMKL's CBLAS declarations after an
+ * OpenBLAS CBLAS header was selected for the host backend.  The oneMKL C++
+ * enums used below are defined by oneapi/mkl/types.hpp independently of
+ * mkl_cblas.h.
+ */
+#    if ALPAKAV_HAS_OPENBLAS && !defined(__MKL_CBLAS_H__)
+#        define __MKL_CBLAS_H__
+#    endif
 #    include <oneapi/mkl/blas.hpp>
 #    include <sycl/sycl.hpp>
 #    define ALPAKAV_HAS_ONEMKL_BLAS 1
