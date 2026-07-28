@@ -9,21 +9,21 @@
 
 namespace alpaka::fft::internal
 {
-    template<alpaka::concepts::Vector T_TargetVec, alpaka::concepts::Vector T_SourceVec>
-    [[nodiscard]] constexpr auto castVec(T_SourceVec const& vec)
+    template<alpaka::concepts::Vector T_TargetVec>
+    [[nodiscard]] constexpr auto castVec(alpaka::concepts::Vector auto const& vec)
     {
-        static_assert(T_TargetVec::dim() == T_SourceVec::dim(), "Extent dimensions must match.");
+        static_assert(T_TargetVec::dim() == ALPAKA_TYPEOF(vec)::dim(), "Extent dimensions must match.");
         return alpaka::lpCast<alpaka::trait::GetValueType_t<T_TargetVec>>(vec);
     }
 
     template<alpaka::concepts::Vector T_TargetVec>
     [[nodiscard]] constexpr auto normalizeVectorOrScalar(alpaka::concepts::VectorOrScalar auto const& value)
     {
-        if constexpr(alpaka::concepts::Vector<std::remove_cvref_t<decltype(value)>>)
+        if constexpr(alpaka::concepts::Vector<ALPAKA_TYPEOF(value)>)
             return castVec<T_TargetVec>(value);
         else
         {
-            using source_index_type = std::remove_cvref_t<decltype(value)>;
+            using source_index_type = ALPAKA_TYPEOF(value);
             using target_index_type = alpaka::trait::GetValueType_t<T_TargetVec>;
             static_assert(
                 alpaka::concepts::LosslesslyConvertible<source_index_type, target_index_type>,
@@ -34,17 +34,17 @@ namespace alpaka::fft::internal
 
     [[nodiscard]] constexpr auto asExtentVec(alpaka::concepts::VectorOrScalar auto const& extents)
     {
-        if constexpr(alpaka::concepts::Vector<std::remove_cvref_t<decltype(extents)>>)
-            return std::remove_cvref_t<decltype(extents)>{extents};
+        if constexpr(alpaka::concepts::Vector<ALPAKA_TYPEOF(extents)>)
+            return ALPAKA_TYPEOF(extents){extents};
         else
-            return alpaka::Vec<std::remove_cvref_t<decltype(extents)>, 1u>::fill(extents);
+            return alpaka::Vec<ALPAKA_TYPEOF(extents), 1u>::fill(extents);
     }
 
-    template<alpaka::concepts::Vector T_Vec>
-    [[nodiscard]] constexpr bool areZero(T_Vec const& strides)
+    [[nodiscard]] constexpr bool areZero(alpaka::concepts::Vector auto const& strides)
     {
-        for(uint32_t i = 0u; i < T_Vec::dim(); ++i)
-            if(strides[i] != static_cast<alpaka::trait::GetValueType_t<T_Vec>>(0u))
+        using Vec = ALPAKA_TYPEOF(strides);
+        for(uint32_t i = 0u; i < Vec::dim(); ++i)
+            if(strides[i] != static_cast<alpaka::trait::GetValueType_t<Vec>>(0u))
                 return false;
         return true;
     }
@@ -199,10 +199,10 @@ namespace alpaka::fft::internal
         return expectedOutStrides<T_Value>(layout, transform, placement);
     }
 
-    template<typename T_Index, uint32_t T_dim, alpaka::concepts::Vector T_Extents>
+    template<typename T_Index, uint32_t T_dim>
     [[nodiscard]] constexpr auto embedsFromStrides(
         alpaka::Vec<T_Index, T_dim> const& elemStrides,
-        T_Extents const& logicalExtents)
+        alpaka::concepts::Vector auto const& logicalExtents)
     {
         std::array<T_Index, T_dim> embeds{};
         embeds[0] = static_cast<T_Index>(logicalExtents[0]);
@@ -244,31 +244,29 @@ namespace alpaka::fft::internal
         return static_cast<T_Index>(byteDistance / elementSize);
     }
 
-    template<typename T>
-    [[nodiscard]] constexpr auto removeCvPtr(T* ptr)
+    [[nodiscard]] constexpr auto removeCvPtr(auto* ptr)
     {
-        return const_cast<std::remove_const_t<T>*>(ptr);
+        return const_cast<std::remove_const_t<ALPAKA_TYPEOF(*ptr)>*>(ptr);
     }
 
-    template<typename T_View, alpaka::concepts::Vector T_Extents>
-    void validateViewExtents(T_View const& view, T_Extents const& expected, std::string const& what)
+    void validateViewExtents(auto const& view, alpaka::concepts::Vector auto const& expected, std::string const& what)
     {
-        auto const actual = castVec<T_Extents>(view.getExtents());
+        auto const actual = castVec<ALPAKA_TYPEOF(expected)>(view.getExtents());
         if(actual != expected)
             throw std::invalid_argument(what + " extents do not match plan.");
     }
 
-    template<typename T_View, alpaka::concepts::Vector T_Extents>
     void validateBatchedViewExtents(
-        T_View const& view,
-        T_Extents const& perTransformExtents,
-        alpaka::trait::GetValueType_t<T_Extents> batch,
+        auto const& view,
+        alpaka::concepts::Vector auto const& perTransformExtents,
+        std::integral auto batch,
         std::string const& what)
     {
-        auto const actual = castVec<T_Extents>(view.getExtents());
-        if constexpr(T_Extents::dim() > 1u)
+        using Extents = ALPAKA_TYPEOF(perTransformExtents);
+        auto const actual = castVec<Extents>(view.getExtents());
+        if constexpr(Extents::dim() > 1u)
         {
-            for(uint32_t i = 1u; i < T_Extents::dim(); ++i)
+            for(uint32_t i = 1u; i < Extents::dim(); ++i)
             {
                 if(actual[i] != perTransformExtents[i])
                     throw std::invalid_argument(what + " extents do not match plan.");

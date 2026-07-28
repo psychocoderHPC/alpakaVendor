@@ -136,13 +136,13 @@ namespace alpaka::fft
     template<typename T>
     using Real_t = typename Real<T>::type;
 
-    template<alpaka::concepts::Vector T_Extents>
-    [[nodiscard]] constexpr auto contiguousStrides(T_Extents const& extents)
+    [[nodiscard]] constexpr auto contiguousStrides(alpaka::concepts::Vector auto const& extents)
     {
-        using index_type = alpaka::trait::GetValueType_t<T_Extents>;
-        T_Extents strides{};
+        using Extents = ALPAKA_TYPEOF(extents);
+        using index_type = alpaka::trait::GetValueType_t<Extents>;
+        Extents strides{};
         index_type current = static_cast<index_type>(1u);
-        for(uint32_t i = T_Extents::dim(); i-- > 0u;)
+        for(uint32_t i = Extents::dim(); i-- > 0u;)
         {
             strides[i] = current;
             current *= extents[i];
@@ -155,17 +155,17 @@ namespace alpaka::fft
      *
      * Only the non-redundant Hermitian half-spectrum is stored.
      */
-    template<std::integral T_Index>
-    [[nodiscard]] constexpr T_Index r2cComplexExtent(T_Index realExtent)
+    [[nodiscard]] constexpr auto r2cComplexExtent(std::integral auto realExtent)
     {
-        return realExtent / static_cast<T_Index>(2u) + static_cast<T_Index>(1u);
+        using Index = ALPAKA_TYPEOF(realExtent);
+        return realExtent / static_cast<Index>(2u) + static_cast<Index>(1u);
     }
 
-    template<alpaka::concepts::Vector T_Extents>
-    requires std::integral<alpaka::trait::GetValueType_t<T_Extents>>
-    [[nodiscard]] constexpr T_Extents r2cComplexExtent(T_Extents extents)
+    [[nodiscard]] constexpr auto r2cComplexExtent(alpaka::concepts::Vector auto extents)
+        requires std::integral<alpaka::trait::GetValueType_t<ALPAKA_TYPEOF(extents)>>
     {
-        extents[T_Extents::dim() - 1u] = r2cComplexExtent(extents[T_Extents::dim() - 1u]);
+        using Extents = ALPAKA_TYPEOF(extents);
+        extents[Extents::dim() - 1u] = r2cComplexExtent(extents[Extents::dim() - 1u]);
         return extents;
     }
 
@@ -174,49 +174,49 @@ namespace alpaka::fft
      *
      * This describes the transform domain size, not the padded in-place storage size.
      */
-    template<std::integral T_Index>
-    [[nodiscard]] constexpr T_Index c2rLogicalRealExtent(T_Index complexExtent)
+    [[nodiscard]] constexpr auto c2rLogicalRealExtent(std::integral auto complexExtent)
     {
-        if(complexExtent == static_cast<T_Index>(0u))
+        using Index = ALPAKA_TYPEOF(complexExtent);
+        if(complexExtent == static_cast<Index>(0u))
             throw std::invalid_argument("Complex extent for C2R must be non-zero.");
-        return static_cast<T_Index>(2u) * (complexExtent - static_cast<T_Index>(1u));
+        return static_cast<Index>(2u) * (complexExtent - static_cast<Index>(1u));
     }
 
-    template<alpaka::concepts::Vector T_Extents>
-    requires std::integral<alpaka::trait::GetValueType_t<T_Extents>>
-    [[nodiscard]] constexpr T_Extents c2rLogicalRealExtent(T_Extents extents)
+    [[nodiscard]] constexpr auto c2rLogicalRealExtent(alpaka::concepts::Vector auto extents)
+        requires std::integral<alpaka::trait::GetValueType_t<ALPAKA_TYPEOF(extents)>>
     {
-        extents[T_Extents::dim() - 1u] = c2rLogicalRealExtent(extents[T_Extents::dim() - 1u]);
+        using Extents = ALPAKA_TYPEOF(extents);
+        extents[Extents::dim() - 1u] = c2rLogicalRealExtent(extents[Extents::dim() - 1u]);
         return extents;
     }
 
     /** Return the padded real-storage extent required for in-place C2R/R2C layouts. */
-    template<std::integral T_Index>
-    [[nodiscard]] constexpr T_Index c2rPaddedRealExtent(T_Index complexExtent)
+    [[nodiscard]] constexpr auto c2rPaddedRealExtent(std::integral auto complexExtent)
     {
-        return static_cast<T_Index>(2u) * complexExtent;
+        using Index = ALPAKA_TYPEOF(complexExtent);
+        return static_cast<Index>(2u) * complexExtent;
     }
 
-    template<alpaka::concepts::Vector T_Extents>
-    requires std::integral<alpaka::trait::GetValueType_t<T_Extents>>
-    [[nodiscard]] constexpr T_Extents c2rPaddedRealExtent(T_Extents extents)
+    [[nodiscard]] constexpr auto c2rPaddedRealExtent(alpaka::concepts::Vector auto extents)
+        requires std::integral<alpaka::trait::GetValueType_t<ALPAKA_TYPEOF(extents)>>
     {
-        extents[T_Extents::dim() - 1u] = c2rPaddedRealExtent(extents[T_Extents::dim() - 1u]);
+        using Extents = ALPAKA_TYPEOF(extents);
+        extents[Extents::dim() - 1u] = c2rPaddedRealExtent(extents[Extents::dim() - 1u]);
         return extents;
     }
 
     /** Return the padded real-storage extent required for in-place R2C layouts. */
-    template<std::integral T_Index>
-    [[nodiscard]] constexpr T_Index r2cPaddedRealExtent(T_Index realExtent)
+    [[nodiscard]] constexpr auto r2cPaddedRealExtent(std::integral auto realExtent)
     {
-        return static_cast<T_Index>(2u) * r2cComplexExtent(realExtent);
+        using Index = ALPAKA_TYPEOF(realExtent);
+        return static_cast<Index>(2u) * r2cComplexExtent(realExtent);
     }
 
-    template<alpaka::concepts::Vector T_Extents>
-    requires std::integral<alpaka::trait::GetValueType_t<T_Extents>>
-    [[nodiscard]] constexpr T_Extents r2cPaddedRealExtent(T_Extents extents)
+    [[nodiscard]] constexpr auto r2cPaddedRealExtent(alpaka::concepts::Vector auto extents)
+        requires std::integral<alpaka::trait::GetValueType_t<ALPAKA_TYPEOF(extents)>>
     {
-        extents[T_Extents::dim() - 1u] = r2cPaddedRealExtent(extents[T_Extents::dim() - 1u]);
+        using Extents = ALPAKA_TYPEOF(extents);
+        extents[Extents::dim() - 1u] = r2cPaddedRealExtent(extents[Extents::dim() - 1u]);
         return extents;
     }
 
@@ -255,10 +255,10 @@ namespace alpaka::fft
     {
         auto extents = [&]()
         {
-            if constexpr(alpaka::concepts::Vector<std::remove_cvref_t<decltype(logicalRealExtents)>>)
-                return std::remove_cvref_t<decltype(logicalRealExtents)>{logicalRealExtents};
+            if constexpr(alpaka::concepts::Vector<ALPAKA_TYPEOF(logicalRealExtents)>)
+                return ALPAKA_TYPEOF(logicalRealExtents){logicalRealExtents};
             else
-                return alpaka::Vec<std::remove_cvref_t<decltype(logicalRealExtents)>, 1u>::fill(logicalRealExtents);
+                return alpaka::Vec<ALPAKA_TYPEOF(logicalRealExtents), 1u>::fill(logicalRealExtents);
         }();
         auto physicalRealExtents = r2cPaddedRealExtent(extents);
         auto logicalComplexExtents = r2cComplexExtent(extents);
@@ -282,10 +282,10 @@ namespace alpaka::fft
     {
         auto extents = [&]()
         {
-            if constexpr(alpaka::concepts::Vector<std::remove_cvref_t<decltype(extentsArg)>>)
-                return std::remove_cvref_t<decltype(extentsArg)>{extentsArg};
+            if constexpr(alpaka::concepts::Vector<ALPAKA_TYPEOF(extentsArg)>)
+                return ALPAKA_TYPEOF(extentsArg){extentsArg};
             else
-                return alpaka::Vec<std::remove_cvref_t<decltype(extentsArg)>, 1u>::fill(extentsArg);
+                return alpaka::Vec<ALPAKA_TYPEOF(extentsArg), 1u>::fill(extentsArg);
         }();
         if constexpr(RealScalar<T_Value>)
         {

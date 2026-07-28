@@ -13,10 +13,10 @@
 
 namespace alpaka::fft::onHost::internal
 {
-    template<typename T_Type, typename T_Buffer, alpaka::concepts::Vector T_FftExtents>
-    [[nodiscard]] auto wrapBuffer(T_Buffer&& buffer, FftBufferExtents<T_FftExtents> const& fftExtents)
+    template<typename T_Type, alpaka::concepts::Vector T_FftExtents>
+    [[nodiscard]] auto wrapBuffer(auto&& buffer, FftBufferExtents<T_FftExtents> const& fftExtents)
     {
-        using Buffer = std::decay_t<T_Buffer>;
+        using Buffer = ALPAKA_TYPEOF(buffer);
         using Api = decltype(alpaka::getApi(std::declval<Buffer>()));
         using ExtentsVec = decltype(buffer.getExtents());
         auto rawOwner = std::make_shared<Buffer>(ALPAKA_FORWARD(buffer));
@@ -41,8 +41,8 @@ namespace alpaka::fft::onHost::internal
             alpaka::Alignment<>{}};
     }
 
-    template<typename T_Type, alpaka::concepts::Vector T_Extents>
-    [[nodiscard]] auto fftAllocationExtents(T_Extents const& logicalExtents)
+    template<typename T_Type>
+    [[nodiscard]] auto fftAllocationExtents(alpaka::concepts::Vector auto const& logicalExtents)
     {
         auto storage = makeFftBufferExtents<T_Type>(logicalExtents);
         if constexpr(RealScalar<T_Type>)
@@ -122,9 +122,9 @@ namespace alpaka::fft::onHost
      * This allocation is required for in-place FFT transforms where the same buffer is used for both input and
      * output with automatic padding management.
      */
-    template<typename T_Type, typename T_Device, alpaka::concepts::QueueKind T_QueueKind>
+    template<typename T_Type>
     [[nodiscard]] auto allocDeferred(
-        alpaka::onHost::Queue<T_Device, T_QueueKind> const& queue,
+        alpaka::onHost::internal::concepts::Queue auto const& queue,
         alpaka::concepts::VectorOrScalar auto const& extents)
     {
         auto logicalExtents = alpaka::fft::internal::asExtentVec(extents);
