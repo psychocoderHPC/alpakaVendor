@@ -59,6 +59,7 @@ The public helpers let you describe how an existing view should be interpreted:
 
 These annotations can be stacked. For example, ``unitDiag(lower(A))`` marks a lower-triangular matrix whose diagonal is
 implicitly one, and ``conjTransposed(A)`` asks BLAS to use the Hermitian transpose without creating a temporary copy.
+Complex ``gemv`` with ``conjTransposed(A)`` is currently not available on the CUDA/cuBLAS and HIP/rocBLAS row-major paths.
 
 Backend notes
 -------------
@@ -86,8 +87,8 @@ handling is:
      - Accepted, currently ignored.
      - Accepted, currently ignored.
    * - CUDA / cuBLAS
-     - ``exact`` selects pedantic math for supported single-precision real and complex paths; other paths use the cuBLAS
-       default compute mode.
+     - ``exact`` selects pedantic math mode for single-precision real and complex routines. GEMM and strided batched GEMM
+       also pass pedantic compute types for ``float``, ``double``, and complex variants.
      - ``deterministic`` disables cuBLAS atomics and ``fastest`` enables them for GEMM, strided batched GEMM, GEMV, and
        TRSM.
    * - HIP / rocBLAS
@@ -97,4 +98,4 @@ handling is:
    * - oneAPI / oneMKL
      - ``exact`` requests oneMKL standard compute mode for GEMM, batched GEMM, and TRSM.
      - ``deterministic`` requests standard compute mode. ``fastest`` requests oneMKL alternate compute mode for
-       single-precision real and complex GEMM-family paths when oneMKL supports it.
+       single-precision real and complex GEMM, batched GEMM, and TRSM paths when oneMKL supports it.

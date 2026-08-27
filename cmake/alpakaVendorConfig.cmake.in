@@ -3,17 +3,28 @@
 include(CMakeFindDependencyMacro)
 find_dependency(alpaka REQUIRED CONFIG)
 
-if(@alpakaV_DEP_FFTW@)
+if(@alpakaV_DEP_FFTW@ OR @alpakaV_DEP_OPENBLAS@)
     find_dependency(PkgConfig REQUIRED)
+endif()
+
+if(@alpakaV_DEP_FFTW@)
     pkg_check_modules(FFTW3 REQUIRED IMPORTED_TARGET fftw3 fftw3f)
 endif()
 
-if(@alpakaV_DEP_CUFFT@)
+if(@alpakaV_DEP_OPENBLAS@)
+    pkg_check_modules(OPENBLAS REQUIRED IMPORTED_TARGET openblas)
+endif()
+
+if(@alpakaV_DEP_CUFFT@ OR @alpakaV_DEP_CUBLAS@)
     find_dependency(CUDAToolkit REQUIRED)
 endif()
 
 if(@alpakaV_DEP_ROCFFT@)
     find_dependency(rocfft REQUIRED CONFIG)
+endif()
+
+if(@alpakaV_DEP_ROCBLAS@)
+    find_dependency(rocblas REQUIRED CONFIG)
 endif()
 
 if(@alpakaV_DEP_ONEMKL@)

@@ -8,7 +8,7 @@ cmake_minimum_required(VERSION 3.25)
 project(
     alpakaVendor
     VERSION 0.1.0
-    DESCRIPTION "Header-only vendor FFT abstraction on top of alpaka3."
+    DESCRIPTION "Header-only vendor FFT and BLAS abstractions on top of alpaka3."
     HOMEPAGE_URL "https://github.com/alpaka-group/alpakaVendor"
     LANGUAGES CXX
 )
@@ -24,7 +24,7 @@ option(alpakaV_DEP_CUFFT "Enable cuFFT CUDA backend." OFF)
 option(alpakaV_DEP_CUBLAS "Enable cuBLAS CUDA backend." OFF)
 option(alpakaV_DEP_ROCFFT "Enable rocFFT HIP backend." OFF)
 option(alpakaV_DEP_ROCBLAS "Enable rocBLAS HIP backend." OFF)
-option(alpakaV_DEP_ONEMKL "Enable oneMKL DFT oneAPI backend." OFF)
+option(alpakaV_DEP_ONEMKL "Enable oneMKL DFT and BLAS oneAPI backends." OFF)
 option(alpakaV_DOCS "Build documentation and code snippets." OFF)
 
 if(alpaka_DEP_HIP)

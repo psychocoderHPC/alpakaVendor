@@ -40,7 +40,7 @@ Step 3: GEMV with and without transpose
 ---------------------------------------
 
 ``gemv`` computes ``y = alpha * op(A) * x + beta * y``. The useful part is that ``op(A)`` can be the matrix as stored,
-its transpose, or its conjugate transpose.
+its transpose, or, where the selected backend supports it, its conjugate transpose.
 
 .. literalinclude:: ../../../doc/code/tutorial_blas.cpp
    :language: C++
