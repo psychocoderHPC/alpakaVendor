@@ -152,6 +152,9 @@ jobs:
       - name: Install FFTW
         run: apt-get install -y libfftw3-dev
 
+      - name: Install OpenBLAS
+        run: apt-get install -y libopenblas-dev
+
       - name: Install oneMKL
         if: matrix.config.compiler == 'icpx'
         run: |
@@ -190,7 +193,7 @@ jobs:
       - name: Install ROCm
         if: matrix.config.hip != 'no'
         run: |
-          apt-get install -y rocfft
+          apt-get install -y rocfft rocblas
           # ROCm is pre-installed in the ROCm container
           ROCM_PATH=/opt/rocm
           echo "ROCM_PATH=${ROCM_PATH}" >> $GITHUB_ENV
@@ -260,7 +263,7 @@ jobs:
           # Backend-specific flags
           if [ "${{ matrix.config.cuda }}" != "no" ]; then
             CMAKE_FLAGS="${CMAKE_FLAGS} -Dalpaka_DEP_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=80"
-            CMAKE_FLAGS="${CMAKE_FLAGS} -DalpakaV_DEP_CUFFT=ON"
+            CMAKE_FLAGS="${CMAKE_FLAGS} -DalpakaV_DEP_CUFFT=ON -DalpakaV_DEP_CUBLAS=ON"
           fi
           if [ "${{ matrix.config.compiler }}" = "clang" ] && [ "${{ matrix.config.cuda }}" != "no" ]; then
             CMAKE_FLAGS="${CMAKE_FLAGS} -DCMAKE_CUDA_COMPILER=$CXX -DCMAKE_CUDA_HOST_COMPILER=$CXX"
@@ -269,7 +272,7 @@ jobs:
           if [ "${{ matrix.config.hip }}" != "no" ]; then
             CMAKE_FLAGS="${CMAKE_FLAGS} -DCMAKE_CXX_COMPILER=clang++ -Dalpaka_DEP_HIP=ON -Dalpaka_DEP_OMP=OFF"
             CMAKE_FLAGS="${CMAKE_FLAGS} -DCMAKE_HIP_ARCHITECTURES=gfx906 -DAMDGPU_TARGETS=gfx906"
-            CMAKE_FLAGS="${CMAKE_FLAGS} -DalpakaV_DEP_ROCFFT=ON"
+            CMAKE_FLAGS="${CMAKE_FLAGS} -DalpakaV_DEP_ROCFFT=ON -DalpakaV_DEP_ROCBLAS=ON"
           fi
           if [ "${{ matrix.config.compiler }}" = "icpx" ]; then
             CMAKE_FLAGS="${CMAKE_FLAGS} -Dalpaka_DEP_ONEAPI=ON -Dalpaka_ONEAPI_Cpu=ON -Dalpaka_ONEAPI_IntelGpu=OFF"

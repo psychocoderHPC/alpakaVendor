@@ -12,7 +12,8 @@ alpakaVendor aims to provide a unified interface for common math operations acro
    Portable FFT abstraction mapping to vendor-specific implementations (FFTW, cuFFT, rocFFT, oneMKL DFT). Supports C2C, R2C, and C2R transforms in 1D, 2D, and 3D, with batched and in-place modes.
 
 **BLAS**
-   (Planned) Portable BLAS interface for linear algebra operations.
+   Portable BLAS interface for dense linear algebra on alpaka queues and views. Supports Level-1 vector routines,
+   ``gemv``, ``gemm``, ``stridedBatchedGemm``, and ``trsm`` with real and complex values.
 
 **Parallel primitives**
    (Planned) Data-parallel building blocks such as elementwise transforms, sorting, scans, and reductions.
@@ -35,10 +36,17 @@ See :doc:`../modules` for the module-oriented documentation layout.
 Supported backends
 ------------------
 
-- **FFTW** (CPU): The fastest Fourier transform in the West. Supports float and double precision.
-- **cuFFT** (NVIDIA GPU): NVIDIA's CUDA FFT library. Requires CUDA toolkit.
-- **rocFFT** (AMD GPU): AMD's HIP FFT library.
-- **oneMKL** (oneAPI CPU / Intel GPU): Intel's oneAPI Math Kernel Library.
+FFT backends
+   - **FFTW** (CPU): The fastest Fourier transform in the West. Supports float and double precision.
+   - **cuFFT** (NVIDIA GPU): NVIDIA's CUDA FFT library. Requires CUDA toolkit.
+   - **rocFFT** (AMD GPU): AMD's HIP FFT library.
+   - **oneMKL DFT** (oneAPI CPU / Intel GPU): Intel's oneAPI Math Kernel Library DFT domain.
+
+BLAS backends
+   - **OpenBLAS / CBLAS** (CPU): Host BLAS backend for alpaka host queues.
+   - **cuBLAS** (NVIDIA GPU): CUDA BLAS backend. Requires the CUDA toolkit.
+   - **rocBLAS** (AMD GPU): HIP BLAS backend. Requires ROCm.
+   - **oneMKL BLAS** (oneAPI CPU / Intel GPU): oneAPI BLAS backend.
 
 Requirements
 ------------

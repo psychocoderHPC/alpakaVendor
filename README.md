@@ -6,20 +6,22 @@
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://isocpp.org/)
 [![alpaka](https://img.shields.io/badge/alpaka-3.x-orange.svg)](https://github.com/alpaka-group/alpaka)
 
-alpakaVendor is a header-only C++20 library that provides portable, type-safe abstractions for vendor-optimized libraries on top of the [alpaka](https://github.com/alpaka-group/alpaka) accelerator abstraction layer. Write once, run on any hardware — CPU, NVIDIA GPU, AMD GPU, or Intel GPU.
+alpakaVendor is a header-only C++20 library that provides portable, type-safe abstractions for vendor-optimized libraries on top of the [alpaka](https://github.com/alpaka-group/alpaka) accelerator abstraction layer. 
+Write once, run on any hardware — CPU, NVIDIA GPU, AMD GPU, or Intel GPU.
 
 ## Modules
 
 | Module | Status | Description |
 |--------|--------|-------------|
 | **FFT** | Available | 1D/2D/3D C2C, R2C/C2R transforms with batched and in-place support |
-| **BLAS** | Planned | Linear algebra operations (gemm, axpy, etc.) |
+| **BLAS** | Available | BLAS Level-1, GEMV, GEMM, strided batched GEMM, and TRSM |
 | **Parallel Primitives** | Planned | Elementwise transforms, sorting, scans, reductions, and related building blocks |
 
 ## Features
 
-- **Portable**: Single codebase targeting CPU (FFTW), NVIDIA GPU (cuFFT), AMD GPU (rocFFT), and Intel GPU (oneMKL DFT) through alpaka's backend abstraction.
+- **Portable**: Single codebase targeting CPU (FFTW/OpenBLAS), NVIDIA GPU (cuFFT/cuBLAS), AMD GPU (rocFFT/rocBLAS), and Intel GPU (oneMKL DFT/BLAS) through alpaka's backend abstraction.
 - **Type-safe**: Strong typing for real and complex value types with compile-time dimension selection (1D, 2D, 3D).
+- **BLAS abstractions**: Portable BLAS operations for host and accelerator backends using alpaka queues and views.
 - **RAII-based**: Plans are RAII objects that own backend handles and clean up automatically.
 - **Batched transforms**: Efficient batched FFT operations with configurable strides and distances.
 - **In-place real transforms**: Safe in-place R2C/C2R transforms with automatic padding management and real/complex view conversion via `SharedBufferFFT`.
@@ -65,10 +67,10 @@ alpaka::onHost::wait(queue);
 - C++20 compiler (GCC 11+, Clang 14+, nvcc 12+, icpx 2025.0+)
 - CMake 3.25+
 - [alpaka 3.x](https://github.com/alpaka-group/alpaka)
-- [FFTW 3.x](http://www.fftw.org/) (for CPU backend)
-- CUDA Toolkit (for NVIDIA GPU backend, optional)
-- ROCm / rocFFT (for AMD GPU backend, optional)
-- oneMKL DFT / oneAPI (for oneAPI CPU or Intel GPU backends, optional)
+- [FFTW 3.x](http://www.fftw.org/) and OpenBLAS (for CPU backends)
+- CUDA Toolkit with cuFFT/cuBLAS (for NVIDIA GPU backends, optional)
+- ROCm with rocFFT/rocBLAS (for AMD GPU backends, optional)
+- oneMKL DFT/BLAS and oneAPI (for oneAPI CPU or Intel GPU backends, optional)
 
 ## Installation
 
@@ -104,9 +106,12 @@ target_link_libraries(your_target PRIVATE alpakaVendor::alpakaVendor)
 | Option | Default          | Description |
 |--------|------------------|-------------|
 | `alpakaV_DEP_FFTW` | `ON`             | Enable FFTW host backend |
+| `alpakaV_DEP_OPENBLAS` | `ON`         | Enable OpenBLAS host backend |
 | `alpakaV_DEP_CUFFT` | `OFF`            | Enable cuFFT CUDA backend |
+| `alpakaV_DEP_CUBLAS` | `OFF`          | Enable cuBLAS CUDA backend |
 | `alpakaV_DEP_ROCFFT` | `OFF`            | Enable rocFFT HIP backend |
-| `alpakaV_DEP_ONEMKL` | `OFF`            | Enable oneMKL DFT oneAPI backend |
+| `alpakaV_DEP_ROCBLAS` | `OFF`         | Enable rocBLAS HIP backend |
+| `alpakaV_DEP_ONEMKL` | `OFF`            | Enable oneMKL DFT and BLAS oneAPI backends |
 | `alpakaV_TESTS` | `ON` (top-level) | Build tests |
 | `alpakaV_DOCS` | `OFF`            | Build documentation |
 

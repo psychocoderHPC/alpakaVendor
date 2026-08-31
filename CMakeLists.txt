@@ -8,7 +8,7 @@ cmake_minimum_required(VERSION 3.25)
 project(
     alpakaVendor
     VERSION 0.1.0
-    DESCRIPTION "Header-only vendor FFT abstraction on top of alpaka3."
+    DESCRIPTION "Header-only vendor FFT and BLAS abstractions on top of alpaka3."
     HOMEPAGE_URL "https://github.com/alpaka-group/alpakaVendor"
     LANGUAGES CXX
 )
@@ -19,9 +19,12 @@ include(FetchContent)
 
 option(alpakaV_TESTS "Build alpakaVendor tests." ${PROJECT_IS_TOP_LEVEL})
 option(alpakaV_DEP_FFTW "Enable FFTW host backend." ON)
+option(alpakaV_DEP_OPENBLAS "Enable OpenBLAS host backend." ON)
 option(alpakaV_DEP_CUFFT "Enable cuFFT CUDA backend." OFF)
+option(alpakaV_DEP_CUBLAS "Enable cuBLAS CUDA backend." OFF)
 option(alpakaV_DEP_ROCFFT "Enable rocFFT HIP backend." OFF)
-option(alpakaV_DEP_ONEMKL "Enable oneMKL DFT oneAPI backend." OFF)
+option(alpakaV_DEP_ROCBLAS "Enable rocBLAS HIP backend." OFF)
+option(alpakaV_DEP_ONEMKL "Enable oneMKL DFT and BLAS oneAPI backends." OFF)
 option(alpakaV_DOCS "Build documentation and code snippets." OFF)
 
 if(alpaka_DEP_HIP)
@@ -51,7 +54,16 @@ if(alpakaV_DEP_FFTW)
     pkg_check_modules(FFTW3 REQUIRED IMPORTED_TARGET fftw3 fftw3f)
 endif()
 
+if(alpakaV_DEP_OPENBLAS)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(OPENBLAS REQUIRED IMPORTED_TARGET openblas)
+endif()
+
 if(alpakaV_DEP_CUFFT)
+    find_package(CUDAToolkit REQUIRED)
+endif()
+
+if(alpakaV_DEP_CUBLAS)
     find_package(CUDAToolkit REQUIRED)
 endif()
 
@@ -62,6 +74,16 @@ if(alpakaV_DEP_ROCFFT)
         CONFIG
         HINTS "$ENV{ROCM_PATH}" /opt/rocm /opt/rocm-6.3.4
         PATH_SUFFIXES lib/cmake/rocfft
+    )
+endif()
+
+if(alpakaV_DEP_ROCBLAS)
+    find_package(
+        rocblas
+        REQUIRED
+        CONFIG
+        HINTS "$ENV{ROCM_PATH}" /opt/rocm /opt/rocm-6.3.4
+        PATH_SUFFIXES lib/cmake/rocblas
     )
 endif()
 
@@ -85,21 +107,36 @@ target_compile_definitions(
     alpakaVendor
     INTERFACE
         ALPAKAV_DEP_FFTW=$<BOOL:${alpakaV_DEP_FFTW}>
+        ALPAKAV_DEP_OPENBLAS=$<BOOL:${alpakaV_DEP_OPENBLAS}>
         ALPAKAV_DEP_CUFFT=$<BOOL:${alpakaV_DEP_CUFFT}>
+        ALPAKAV_DEP_CUBLAS=$<BOOL:${alpakaV_DEP_CUBLAS}>
         ALPAKAV_DEP_ROCFFT=$<BOOL:${alpakaV_DEP_ROCFFT}>
+        ALPAKAV_DEP_ROCBLAS=$<BOOL:${alpakaV_DEP_ROCBLAS}>
         ALPAKAV_DEP_ONEMKL=$<BOOL:${alpakaV_DEP_ONEMKL}>
 )
 if(alpakaV_DEP_FFTW)
     target_link_libraries(alpakaVendor INTERFACE PkgConfig::FFTW3)
 endif()
+if(alpakaV_DEP_OPENBLAS)
+    target_link_libraries(alpakaVendor INTERFACE PkgConfig::OPENBLAS)
+endif()
 if(alpakaV_DEP_CUFFT)
     target_link_libraries(alpakaVendor INTERFACE CUDA::cufft)
+endif()
+if(alpakaV_DEP_CUBLAS)
+    target_link_libraries(alpakaVendor INTERFACE CUDA::cublas)
 endif()
 if(alpakaV_DEP_ROCFFT)
     target_link_libraries(alpakaVendor INTERFACE roc::rocfft)
 endif()
+if(alpakaV_DEP_ROCBLAS)
+    target_link_libraries(alpakaVendor INTERFACE roc::rocblas)
+endif()
 if(alpakaV_DEP_ONEMKL)
     target_link_libraries(alpakaVendor INTERFACE MKL::MKL_SYCL::DFT)
+    if(TARGET MKL::MKL_SYCL)
+        target_link_libraries(alpakaVendor INTERFACE MKL::MKL_SYCL)
+    endif()
 endif()
 
 if(alpakaV_TESTS)
