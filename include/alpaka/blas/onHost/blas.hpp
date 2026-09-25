@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include "alpaka/blas/internal/api/blas.hpp"
 #include "alpaka/blas/internal/scaleTriangle.hpp"
 
@@ -118,7 +120,15 @@ namespace alpaka::blas::onHost
         internal::validateWritable<ALPAKA_TYPEOF(result)>();
         internal::validateSameVectorExtent(x, y, "dot");
         internal::validateScalarResult(x, result, "dot");
-        internal::DotFn::call(queue, x, y, result, options);
+        // Guard the dispatch with the result element type: a mismatch must throw before any backend call is
+        // instantiated, because vendor reduction routines are typed on their scalar result pointer. ``Value_t`` is
+        // cv-preserving, so both sides are compared with cv removed to accept read-only (const-element) inputs.
+        if constexpr(std::same_as<
+                         std::remove_cv_t<internal::Value_t<ALPAKA_TYPEOF(result)>>,
+                         std::remove_cv_t<internal::Value_t<ALPAKA_TYPEOF(x)>>>)
+            internal::DotFn::call(queue, x, y, result, options);
+        else
+            throw std::invalid_argument("dot requires a result buffer with the routine's result type.");
     }
 
     /**
@@ -192,7 +202,12 @@ namespace alpaka::blas::onHost
         internal::validateScalarSupport<internal::Value_t<ALPAKA_TYPEOF(x)>>();
         internal::validateWritable<ALPAKA_TYPEOF(result)>();
         internal::validateScalarResult(x, result, "nrm2");
-        internal::Nrm2Fn::call(queue, x, result, options);
+        if constexpr(std::same_as<
+                         internal::Value_t<ALPAKA_TYPEOF(result)>,
+                         Real_t<internal::Value_t<ALPAKA_TYPEOF(x)>>>)
+            internal::Nrm2Fn::call(queue, x, result, options);
+        else
+            throw std::invalid_argument("nrm2 requires a result buffer with the routine's result type.");
     }
 
     /**
@@ -211,7 +226,12 @@ namespace alpaka::blas::onHost
         internal::validateScalarSupport<internal::Value_t<ALPAKA_TYPEOF(x)>>();
         internal::validateWritable<ALPAKA_TYPEOF(result)>();
         internal::validateScalarResult(x, result, "asum");
-        internal::AsumFn::call(queue, x, result, options);
+        if constexpr(std::same_as<
+                         internal::Value_t<ALPAKA_TYPEOF(result)>,
+                         Real_t<internal::Value_t<ALPAKA_TYPEOF(x)>>>)
+            internal::AsumFn::call(queue, x, result, options);
+        else
+            throw std::invalid_argument("asum requires a result buffer with the routine's result type.");
     }
 
     /**
@@ -240,7 +260,15 @@ namespace alpaka::blas::onHost
         internal::validateScalarSupport<internal::Value_t<ALPAKA_TYPEOF(x)>>();
         internal::validateWritable<ALPAKA_TYPEOF(result)>();
         internal::validateScalarResult(x, result, "iamax");
-        internal::IamaxFn::call(queue, x, result, options);
+        // The result element type must be exactly a 32-bit signed integer: the host backend writes through
+        // ``int``, CUDA/HIP reinterpret_cast the result pointer to ``int*`` and write 4 bytes, and oneMKL has an
+        // int32 overload for an int result. Accepting a narrower or wider integral type would overflow the buffer or
+        // leave high bytes indeterminate. The wider oneMKL result width is tracked in issue #19.
+        using R = internal::Value_t<ALPAKA_TYPEOF(result)>;
+        if constexpr(std::same_as<R, std::int32_t>)
+            internal::IamaxFn::call(queue, x, result, options);
+        else
+            throw std::invalid_argument("iamax requires a 32-bit signed integer result buffer.");
     }
 
     /**
